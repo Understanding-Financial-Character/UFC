@@ -82,3 +82,5 @@ MVP development may use synthetic or manually uploaded transaction-like data onl
 - The AI layer must receive display labels or internal member references instead of real names when possible.
 - Raw transaction rows should not be sent to the LLM API.
 - Analysis metrics, aggregate category ratios, axis scores, and limitation flags are preferred over raw financial details.
+- Qwen3 4B prompts may include consumption MBTI, axis scores, confidence, top evidence, member MBTI summary, limitations, and result status only.
+- Qwen3 4B prompts must not include user emails, user names or nicknames, internal user ids, full transaction arrays, raw transaction memo text, tokens, ciphertext, or secrets.

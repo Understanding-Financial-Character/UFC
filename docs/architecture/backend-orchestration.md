@@ -7,16 +7,17 @@ FastAPI coordinates MVP workflows across persistence, deterministic analysis, an
 - User and group API orchestration
 - Member MBTI registration
 - Transaction upload, validation, classification handoff, and lookup
-- Consumption behavior metric calculation handoff
+- Analysis input adapter handoff
 - Spending MBTI result persistence
-- LLM report request orchestration
+- Qwen3 report request orchestration
 - API error normalization
 
 ## Boundaries
 
 - Domain APIs live under `backend/app/modules`.
 - Deterministic scoring and metric calculation live under `backend/app/analysis`.
-- LLM prompts, clients, and response parsing live under `backend/app/ai`.
+- Qwen3 prompts, clients, validation, and fallback live under `backend/app/ai`.
+- Analysis execution order and state transitions live under `backend/app/orchestration`.
 - SQLAlchemy session and model foundations live under `backend/app/db`.
 - Shared cross-cutting code lives under `backend/app/shared`.
 
@@ -25,6 +26,8 @@ FastAPI coordinates MVP workflows across persistence, deterministic analysis, an
 PostgreSQL is the source of truth for users, groups, transactions, analysis metrics, MBTI results, and generated reports.
 
 The backend owns write access to persisted business data. Frontend and AI integrations operate through backend contracts only.
+
+The backend must keep API DTOs, DB entities, and analysis DTOs separate. SQLAlchemy entities must not be returned directly from API routes.
 
 ## Exclusions
 
