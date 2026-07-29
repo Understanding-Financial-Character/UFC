@@ -36,3 +36,4 @@ Defines the shared error response shape for MVP APIs.
 - `details` may include field names, enum values, and validation ranges.
 - `details` must not include raw uploaded transaction rows, API keys, account identifiers, or full LLM payloads.
 - `traceId` must match the request trace identifier and be returned in the `X-Trace-Id` response header.
+- Validation error details must be sanitized to `field`, `type`, and `message`; raw `input` and raw validator context must not be returned.

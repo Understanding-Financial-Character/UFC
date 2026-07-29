@@ -1,8 +1,7 @@
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_db
+from app.api.dependencies import DatabaseSession
 from app.api.router import router as api_v1_router
 from app.core.config import settings
 from app.core.exceptions import (
@@ -14,8 +13,6 @@ from app.core.exceptions import (
 from app.core.logging import configure_logging
 from app.core.trace import trace_id_middleware
 from app.db.health import check_database
-
-DB_DEPENDENCY = Depends(get_db)
 
 
 def create_app() -> FastAPI:
@@ -39,7 +36,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     @app.get("/ready")
-    def root_readiness_check(db: Session = DB_DEPENDENCY) -> dict[str, str]:
+    def root_readiness_check(db: DatabaseSession) -> dict[str, str]:
         check_database(db)
         return {"status": "ready"}
 

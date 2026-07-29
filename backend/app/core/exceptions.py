@@ -1,8 +1,11 @@
+import logging
 from typing import Any
 
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 
 class ApiException(Exception):
@@ -40,6 +43,20 @@ def build_error_response(
     )
 
 
+def sanitize_validation_errors(errors: list[dict[str, Any]]) -> list[dict[str, str]]:
+    sanitized: list[dict[str, str]] = []
+    for error in errors:
+        location = ".".join(str(part) for part in error.get("loc", []))
+        sanitized.append(
+            {
+                "field": location,
+                "type": str(error.get("type", "validation_error")),
+                "message": str(error.get("msg", "Invalid value.")),
+            }
+        )
+    return sanitized
+
+
 async def api_exception_handler(request: Request, exc: ApiException) -> JSONResponse:
     return build_error_response(
         request=request,
@@ -58,11 +75,13 @@ async def validation_exception_handler(
         code="VALIDATION_ERROR",
         message="Request validation failed.",
         status_code=status.HTTP_400_BAD_REQUEST,
-        details={"errors": exc.errors()},
+        details={"errors": sanitize_validation_errors(exc.errors())},
     )
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    trace_id = getattr(request.state, "trace_id", None)
+    logger.exception("Unhandled request exception", extra={"trace_id": trace_id})
     return build_error_response(
         request=request,
         code="INTERNAL_ERROR",

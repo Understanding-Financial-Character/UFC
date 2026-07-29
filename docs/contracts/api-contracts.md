@@ -47,7 +47,6 @@ These endpoints are implemented before domain APIs so Docker, database, and Open
 ### Health Check
 
 - Method and path: `GET /health`
-- API v1 alias: `GET /api/v1/health`
 - Sync or async: Sync
 - Idempotency: Safe read
 - Resource owner: Public infrastructure check
@@ -65,7 +64,6 @@ Response:
 ### Readiness Check
 
 - Method and path: `GET /ready`
-- API v1 alias: `GET /api/v1/ready`
 - Sync or async: Sync
 - Idempotency: Safe read
 - Resource owner: Public infrastructure check

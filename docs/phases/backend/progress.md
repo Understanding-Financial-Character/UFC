@@ -14,7 +14,10 @@ VERIFYING
 - Added API router and dependency module.
 - Added orchestration package boundary.
 - Added request trace id middleware with `X-Trace-Id` response header.
+- Added inbound trace id validation and trace id logging context.
 - Added common API exception handling and normalized error body with `code`, `message`, `details`, and `traceId`.
+- Sanitized validation error responses so raw input and validator context are not echoed.
+- Removed duplicate `/api/v1/health` and `/api/v1/ready` endpoints from the API router.
 - Added backend foundation tests, including a PostgreSQL readiness integration test when `DATABASE_URL` is available.
 - Updated Dockerfile so editable backend installation succeeds in the image.
 - Documented the reproducible FastAPI TestClient/httpx warning.
@@ -31,6 +34,7 @@ VERIFYING
 - Record PR link and final merge commit after review.
 - Domain API schemas and persistence models remain for later backend slices.
 - Authentication implementation remains for a later backend slice.
+- Split production Docker image from development/test dependencies in a later hardening slice.
 
 ## Linked Branch, PR, Commits
 
