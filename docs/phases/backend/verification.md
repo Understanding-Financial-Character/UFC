@@ -30,7 +30,7 @@ python3 -c "import json; data=json.load(open('/private/tmp/ufc-openapi.json')); 
 
 ## Test Results
 
-- `pytest`: Passed, `37 passed, 1 warning`.
+- `pytest`: Passed, `39 passed, 1 warning`.
 - Foundation tests cover health, readiness, meta, OpenAPI paths, sanitized validation errors, trace id handling, DB failure cleanup, and unhandled exception responses.
 - BE Phase 2/3 tests cover authenticated signup, group creation and lookup, member add/update/delete, MBTI validation, 4-member limit, owner access blocking, readiness status transitions, name normalization, empty PATCH rejection, duplicate member name conflict, PostgreSQL API flow, and PostgreSQL concurrent member-add protection.
 - BE Phase 3 security tests cover SEC-01 through SEC-07, login rate limiting, login counter clearing, refresh, logout, refresh token reuse family revocation, PostgreSQL concurrent refresh rotation, email AAD binding, and CORS origin restriction.
@@ -67,6 +67,8 @@ python3 -c "import json; data=json.load(open('/private/tmp/ufc-openapi.json')); 
 - BE Phase 3 uses an environment-backed key provider; KMS integration is deferred.
 - Login rate limiting is in-memory and must move to shared, IP-aware storage before multi-process production deployment.
 - Access tokens use a minimal signed internal format in this MVP and should move to a maintained JOSE/JWT implementation in a later hardening phase.
+- Email encryption now requires `user:{user_id}:email` AES-GCM AAD. Development data created by the earlier Phase 3 security commit without AAD must be reset or re-encrypted before `/api/v1/admin/users` can decrypt it.
+- `refresh_tokens.replaced_by_token_id` stores the replacement id without a self-referential foreign key. Future audit hardening can add that constraint after delete policy is decided.
 - Group readiness status is persisted even though it is currently derivable from members and MBTI completeness. Later phases should either keep it as a persisted read model with disciplined updates or remove persistence and derive it at response/query time.
 - Member create/update maps `IntegrityError` to duplicate display-name conflict because `uq_group_member_name` is currently the relevant member-write constraint. Future hardening should inspect the PostgreSQL constraint name before translating database errors.
 - The FastAPI TestClient/httpx deprecation warning remains non-blocking.

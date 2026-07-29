@@ -165,13 +165,26 @@ def test_sec_05_required_secrets_are_validated() -> None:
     with pytest.raises(RuntimeError, match="Missing required security settings"):
         validate_required_security_settings(insecure_settings)
 
+
+def test_short_auth_token_secret_is_rejected() -> None:
     weak_settings = Settings(
         auth_token_secret="short",
         field_encryption_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
-        field_lookup_hmac_key="also-short",
+        field_lookup_hmac_key="test-email-lookup-hmac-key-32-bytes",
         field_key_version="test-v1",
     )
     with pytest.raises(RuntimeError, match="AUTH_TOKEN_SECRET must be at least 32 bytes"):
+        validate_required_security_settings(weak_settings)
+
+
+def test_short_lookup_hmac_key_is_rejected() -> None:
+    weak_settings = Settings(
+        auth_token_secret="test-auth-token-secret-32-bytes-min",
+        field_encryption_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+        field_lookup_hmac_key="short",
+        field_key_version="test-v1",
+    )
+    with pytest.raises(RuntimeError, match="FIELD_LOOKUP_HMAC_KEY must be at least 32 bytes"):
         validate_required_security_settings(weak_settings)
 
 
