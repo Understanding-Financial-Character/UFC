@@ -15,3 +15,7 @@
 
 - `VITE_API_BASE_URL`이 FastAPI 주소와 일치하는지 확인한다.
 - 로컬 기본값은 `http://localhost:8000`이다.
+
+## Backend test warnings
+
+- [Backend TestClient httpx Deprecation Warning](backend-testclient-httpx-warning.md)

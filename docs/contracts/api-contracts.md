@@ -40,6 +40,74 @@ All versioned response examples include `schema_version`.
 
 The first backend implementation slice must finalize and implement these contracts before frontend or AI integration depends on them.
 
+## Backend Foundation Endpoints
+
+These endpoints are implemented before domain APIs so Docker, database, and OpenAPI readiness can be verified.
+
+### Health Check
+
+- Method and path: `GET /health`
+- API v1 alias: `GET /api/v1/health`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: Public infrastructure check
+- Success status: `200 OK`
+- Error codes: `INTERNAL_ERROR`
+
+Response:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+### Readiness Check
+
+- Method and path: `GET /ready`
+- API v1 alias: `GET /api/v1/ready`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: Public infrastructure check
+- Success status: `200 OK`
+- Error codes: `DATABASE_UNAVAILABLE`, `INTERNAL_ERROR`
+
+Response:
+
+```json
+{
+  "status": "ready"
+}
+```
+
+### API Metadata
+
+- Method and path: `GET /api/v1/meta`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: Public API metadata
+- Success status: `200 OK`
+- Error codes: `INTERNAL_ERROR`
+
+Response:
+
+```json
+{
+  "name": "UFC API",
+  "version": "0.1.0",
+  "environment": "local"
+}
+```
+
+### OpenAPI Schema
+
+- Method and path: `GET /api/v1/openapi.json`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: Public API metadata during MVP development
+- Success status: `200 OK`
+- Error codes: `INTERNAL_ERROR`
+
 ### Create Group
 
 - Method and path: `POST /groups`
