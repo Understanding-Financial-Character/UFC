@@ -18,6 +18,8 @@
 
 `FIELD_ENCRYPTION_KEY` must be base64 encoded and decode to exactly 32 bytes for AES-256-GCM.
 
+`AUTH_TOKEN_SECRET` and `FIELD_LOOKUP_HMAC_KEY` must each be at least 32 bytes. Generate non-local values with `openssl rand -base64 32` or an equivalent secret generator.
+
 BE Phase 3 fails application startup when required auth or encryption settings are missing or invalid.
 
 `compose.dev.yaml` requires these environment variables to be present. It does not provide committed fallback secret values.

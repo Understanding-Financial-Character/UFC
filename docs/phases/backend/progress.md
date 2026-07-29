@@ -38,10 +38,12 @@ VERIFYING
 - Added Argon2id password hashing and refresh token hash storage.
 - Added `USER` and `ADMIN` roles with `/api/v1/admin/users` masked user summaries.
 - Added AES-256-GCM field encryption helpers, email lookup HMAC, key version storage, and `KeyProvider` interface.
-- Added required security setting validation and CORS origin configuration.
-- Added login rate limiting and failed login lockout.
-- Added Phase 3 security migration for user auth fields and refresh tokens.
-- Added security tests SEC-01 through SEC-07 plus auth flow and rate-limit coverage.
+- Added AES-GCM AAD binding for encrypted email.
+- Added required security setting validation, auth/HMAC secret strength checks, and CORS origin configuration.
+- Added login rate limiting, success-counter clearing, failed login lockout, and row locking for failed login updates.
+- Added single-use refresh token rotation with row locking, token family metadata, reuse detection, and family revocation.
+- Added Phase 3 security migrations for user auth fields, refresh tokens, and refresh token rotation metadata.
+- Added security tests SEC-01 through SEC-07 plus auth flow, rate-limit, refresh reuse, and PostgreSQL concurrent refresh coverage.
 
 ## Changed Contracts
 

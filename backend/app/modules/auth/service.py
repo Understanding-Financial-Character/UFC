@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -28,6 +30,8 @@ from app.modules.auth.models import RefreshToken
 from app.modules.auth.schemas import SignupRequest
 from app.modules.users.models import User, UserRole, utc_now
 
+logger = logging.getLogger(__name__)
+
 MAX_FAILED_LOGINS = 5
 LOCKOUT_MINUTES = 15
 LOGIN_RATE_LIMIT_ATTEMPTS = 5
@@ -39,15 +43,18 @@ _login_attempts: dict[str, list[float]] = {}
 class IssuedTokens:
     access_token: str
     refresh_token: str
+    refresh_token_id: str
     expires_in: int
 
 
 def signup(db: Session, payload: SignupRequest) -> tuple[User, IssuedTokens]:
     key_provider = EnvironmentKeyProvider(settings)
     email = normalize_email(str(payload.email))
+    user_id = str(uuid4())
     user = User(
+        id=user_id,
         display_name=payload.display_name,
-        email_ciphertext=encrypt_text(email, key_provider),
+        email_ciphertext=encrypt_text(email, key_provider, email_aad(user_id)),
         email_lookup_hmac=lookup_hmac(email, key_provider),
         email_key_version=key_provider.get_key_version(),
         password_hash=hash_password(payload.password),
@@ -70,7 +77,7 @@ def signup(db: Session, payload: SignupRequest) -> tuple[User, IssuedTokens]:
 
 def authenticate(db: Session, email: str, password: str) -> tuple[User, IssuedTokens]:
     check_login_rate_limit(email)
-    user = find_user_by_email(db, email)
+    user = find_user_by_email_for_update(db, email)
     if user is None or user.password_hash is None:
         raise_invalid_credentials()
     if user.locked_until and ensure_aware(user.locked_until) > datetime.now(UTC):
@@ -85,17 +92,30 @@ def authenticate(db: Session, email: str, password: str) -> tuple[User, IssuedTo
     user.failed_login_count = 0
     user.locked_until = None
     user.last_login_at = utc_now()
+    clear_login_attempts(email)
+    tokens = build_and_store_tokens(db, user)
     db.commit()
-    return user, issue_tokens(db, user)
+    return user, tokens
 
 
 def refresh_access_token(db: Session, refresh_token: str) -> IssuedTokens:
     token_hash = hash_refresh_token(refresh_token)
-    statement = select(RefreshToken).where(RefreshToken.token_hash == token_hash)
+    statement = (
+        select(RefreshToken)
+        .where(RefreshToken.token_hash == token_hash)
+        .with_for_update()
+    )
     stored_token = db.scalar(statement)
+    if stored_token is not None and stored_token.revoked_at is not None:
+        revoke_refresh_token_family(db, stored_token.family_id, "REUSE_DETECTED")
+        logger.warning(
+            "Refresh token reuse detected",
+            extra={"user_id": stored_token.user_id, "token_family_id": stored_token.family_id},
+        )
+        db.commit()
+        raise_invalid_credentials()
     if (
         stored_token is None
-        or stored_token.revoked_at is not None
         or ensure_aware(stored_token.expires_at) <= datetime.now(UTC)
     ):
         raise_invalid_credentials()
@@ -103,8 +123,11 @@ def refresh_access_token(db: Session, refresh_token: str) -> IssuedTokens:
     if user is None:
         raise_invalid_credentials()
     stored_token.revoked_at = utc_now()
+    stored_token.revocation_reason = "ROTATED"
+    tokens = build_and_store_tokens(db, user, family_id=stored_token.family_id)
+    stored_token.replaced_by_token_id = tokens.refresh_token_id
     db.commit()
-    return issue_tokens(db, user)
+    return tokens
 
 
 def logout(db: Session, refresh_token: str) -> None:
@@ -113,18 +136,30 @@ def logout(db: Session, refresh_token: str) -> None:
     stored_token = db.scalar(statement)
     if stored_token is not None and stored_token.revoked_at is None:
         stored_token.revoked_at = utc_now()
+        stored_token.revocation_reason = "LOGOUT"
         db.commit()
 
 
 def issue_tokens(db: Session, user: User) -> IssuedTokens:
+    tokens = build_and_store_tokens(db, user)
+    db.commit()
+    return tokens
+
+
+def build_and_store_tokens(
+    db: Session, user: User, family_id: str | None = None
+) -> IssuedTokens:
     refresh_token = generate_refresh_token()
+    token_id = str(uuid4())
     stored_token = RefreshToken(
+        id=token_id,
         user_id=user.id,
+        family_id=family_id or token_id,
         token_hash=hash_refresh_token(refresh_token),
         expires_at=refresh_token_expires_at(settings),
     )
     db.add(stored_token)
-    db.commit()
+    db.flush()
     return IssuedTokens(
         access_token=create_access_token(
             user_id=user.id,
@@ -133,6 +168,7 @@ def issue_tokens(db: Session, user: User) -> IssuedTokens:
             ttl_seconds=settings.access_token_ttl_seconds,
         ),
         refresh_token=refresh_token,
+        refresh_token_id=token_id,
         expires_in=settings.access_token_ttl_seconds,
     )
 
@@ -140,6 +176,16 @@ def issue_tokens(db: Session, user: User) -> IssuedTokens:
 def find_user_by_email(db: Session, email: str) -> User | None:
     key_provider = EnvironmentKeyProvider(settings)
     statement = select(User).where(User.email_lookup_hmac == lookup_hmac(email, key_provider))
+    return db.scalar(statement)
+
+
+def find_user_by_email_for_update(db: Session, email: str) -> User | None:
+    key_provider = EnvironmentKeyProvider(settings)
+    statement = (
+        select(User)
+        .where(User.email_lookup_hmac == lookup_hmac(email, key_provider))
+        .with_for_update()
+    )
     return db.scalar(statement)
 
 
@@ -177,6 +223,21 @@ def check_login_rate_limit(email: str) -> None:
     _login_attempts[key] = attempts
 
 
+def clear_login_attempts(email: str) -> None:
+    _login_attempts.pop(email.strip().lower(), None)
+
+
+def revoke_refresh_token_family(db: Session, family_id: str, reason: str) -> None:
+    statement = (
+        select(RefreshToken)
+        .where(RefreshToken.family_id == family_id, RefreshToken.revoked_at.is_(None))
+        .with_for_update()
+    )
+    for token in db.scalars(statement).all():
+        token.revoked_at = utc_now()
+        token.revocation_reason = reason
+
+
 def ensure_aware(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
@@ -186,5 +247,9 @@ def ensure_aware(value: datetime) -> datetime:
 def masked_email_for_user(user: User) -> str | None:
     if not user.email_ciphertext:
         return None
-    email = decrypt_text(user.email_ciphertext, EnvironmentKeyProvider(settings))
+    email = decrypt_text(user.email_ciphertext, EnvironmentKeyProvider(settings), email_aad(user.id))
     return mask_email(email)
+
+
+def email_aad(user_id: str) -> bytes:
+    return f"user:{user_id}:email".encode()

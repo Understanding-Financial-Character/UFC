@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import os
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
+from sqlalchemy import inspect as sqlalchemy_inspect
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -31,7 +34,7 @@ class SecurityTestContext:
     session_local: sessionmaker[Session]
 
 
-def build_context() -> SecurityTestContext:
+def build_context(*, raise_server_exceptions: bool = True) -> SecurityTestContext:
     engine = create_engine(
         "sqlite+pysqlite:///:memory:",
         connect_args={"check_same_thread": False},
@@ -49,7 +52,10 @@ def build_context() -> SecurityTestContext:
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    return SecurityTestContext(client=TestClient(app), session_local=testing_session_local)
+    return SecurityTestContext(
+        client=TestClient(app, raise_server_exceptions=raise_server_exceptions),
+        session_local=testing_session_local,
+    )
 
 
 def signup(context: SecurityTestContext, email: str | None = None) -> dict[str, str]:
@@ -159,6 +165,15 @@ def test_sec_05_required_secrets_are_validated() -> None:
     with pytest.raises(RuntimeError, match="Missing required security settings"):
         validate_required_security_settings(insecure_settings)
 
+    weak_settings = Settings(
+        auth_token_secret="short",
+        field_encryption_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+        field_lookup_hmac_key="also-short",
+        field_key_version="test-v1",
+    )
+    with pytest.raises(RuntimeError, match="AUTH_TOKEN_SECRET must be at least 32 bytes"):
+        validate_required_security_settings(weak_settings)
+
 
 def test_sec_06_failed_login_logs_do_not_include_password_or_token(
     caplog: pytest.LogCaptureFixture,
@@ -187,6 +202,30 @@ def test_sec_07_tampered_ciphertext_cannot_be_decrypted() -> None:
         decrypt_text(tampered, key_provider)
 
 
+def test_email_ciphertext_is_bound_to_user_context() -> None:
+    context = build_context(raise_server_exceptions=False)
+    first_user = signup(context, "first-user@example.com")
+    second_user = signup(context, "second-user@example.com")
+
+    with context.session_local() as db:
+        first = db.get(User, first_user["user_id"])
+        second = db.get(User, second_user["user_id"])
+        assert first is not None
+        assert second is not None
+        second.email_ciphertext = first.email_ciphertext
+        db.commit()
+
+    promote_to_admin(context, first_user["user_id"])
+    admin_tokens = login(context, first_user["email"], "correct-password")
+    response = context.client.get(
+        "/api/v1/admin/users",
+        headers={"Authorization": f"Bearer {admin_tokens['access_token']}"},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INTERNAL_ERROR"
+
+
 def test_login_rate_limit_blocks_repeated_failures() -> None:
     context = build_context()
     user = signup(context)
@@ -201,6 +240,30 @@ def test_login_rate_limit_blocks_repeated_failures() -> None:
 
     assert statuses[:5] == [401, 401, 401, 401, 401]
     assert statuses[5] == 429
+
+
+def test_successful_login_clears_login_rate_limit_attempts() -> None:
+    context = build_context()
+    user = signup(context)
+
+    for _ in range(4):
+        response = context.client.post(
+            "/api/v1/auth/login",
+            json={"email": user["email"], "password": "wrong-password-secret"},
+        )
+        assert response.status_code == 401
+
+    success_response = context.client.post(
+        "/api/v1/auth/login",
+        json={"email": user["email"], "password": "correct-password"},
+    )
+    next_success_response = context.client.post(
+        "/api/v1/auth/login",
+        json={"email": user["email"], "password": "correct-password"},
+    )
+
+    assert success_response.status_code == 200
+    assert next_success_response.status_code == 200
 
 
 def test_refresh_and_logout_flow() -> None:
@@ -221,6 +284,28 @@ def test_refresh_and_logout_flow() -> None:
     assert logout_response.json() == {"status": "ok"}
 
 
+def test_refresh_token_reuse_revokes_token_family() -> None:
+    context = build_context()
+    user = signup(context)
+
+    refresh_response = context.client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": user["refresh_token"]},
+    )
+    reuse_response = context.client.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": user["refresh_token"]},
+    )
+
+    assert refresh_response.status_code == 200
+    assert reuse_response.status_code == 401
+    with context.session_local() as db:
+        tokens = list(db.scalars(select(RefreshToken)).all())
+        assert len(tokens) == 2
+        assert all(token.revoked_at is not None for token in tokens)
+        assert {token.revocation_reason for token in tokens} == {"ROTATED", "REUSE_DETECTED"}
+
+
 def test_cors_allows_configured_origin_only() -> None:
     context = build_context()
 
@@ -235,6 +320,56 @@ def test_cors_allows_configured_origin_only() -> None:
 
     assert allowed_response.headers["access-control-allow-origin"] == "http://localhost:5173"
     assert "access-control-allow-origin" not in blocked_response.headers
+
+
+def test_postgres_concurrent_refresh_token_allows_single_rotation() -> None:
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        pytest.skip("DATABASE_URL is required for PostgreSQL refresh token concurrency test.")
+    engine = create_engine(database_url)
+    Base.metadata.create_all(bind=engine)
+    refresh_columns = {
+        column["name"] for column in sqlalchemy_inspect(engine).get_columns("refresh_tokens")
+    }
+    if "family_id" not in refresh_columns:
+        pytest.skip("Refresh token rotation migration is required for this integration test.")
+    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    app = create_app()
+
+    def override_get_db() -> Generator[Session, None, None]:
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    client = TestClient(app)
+    context = SecurityTestContext(client=client, session_local=testing_session_local)
+    user = signup(context)
+
+    def refresh_once() -> int:
+        response = client.post(
+            "/api/v1/auth/refresh",
+            json={"refresh_token": user["refresh_token"]},
+        )
+        return response.status_code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        statuses = list(executor.map(lambda _index: refresh_once(), range(2)))
+
+    with context.session_local() as db:
+        token_rows = list(
+            db.scalars(
+                select(RefreshToken).where(RefreshToken.user_id == user["user_id"])
+            ).all()
+        )
+
+    assert sorted(statuses) == [200, 401]
+    assert len(token_rows) == 2
+    assert sum(token.revocation_reason == "ROTATED" for token in token_rows) == 1
+    assert sum(token.revocation_reason == "REUSE_DETECTED" for token in token_rows) == 1
+    assert all(token.revoked_at is not None for token in token_rows)
 
 
 def login(context: SecurityTestContext, email: str, password: str) -> dict[str, str]:

@@ -23,6 +23,7 @@ REQUIRED_SECURITY_SETTINGS = (
     "field_lookup_hmac_key",
     "field_key_version",
 )
+MIN_HMAC_KEY_BYTES = 32
 
 password_hasher = PasswordHasher()
 
@@ -62,6 +63,15 @@ def validate_required_security_settings(settings: Settings) -> None:
         joined = ", ".join(missing)
         raise RuntimeError(f"Missing required security settings: {joined}")
     decode_aes256_key(require_setting(settings.field_encryption_key))
+    validate_hmac_secret("AUTH_TOKEN_SECRET", settings.auth_token_secret)
+    validate_hmac_secret("FIELD_LOOKUP_HMAC_KEY", settings.field_lookup_hmac_key)
+
+
+def validate_hmac_secret(name: str, value: str | None) -> str:
+    secret = require_setting(value)
+    if len(secret.encode("utf-8")) < MIN_HMAC_KEY_BYTES:
+        raise RuntimeError(f"{name} must be at least 32 bytes.")
+    return secret
 
 
 def require_setting(value: str | None) -> str:
@@ -127,10 +137,10 @@ def decode_access_token(token: str, secret_key: str) -> dict[str, object]:
     return payload
 
 
-def encrypt_text(value: str, key_provider: KeyProvider) -> str:
+def encrypt_text(value: str, key_provider: KeyProvider, aad: bytes | None = None) -> str:
     aesgcm = AESGCM(key_provider.get_field_key())
     nonce = secrets.token_bytes(12)
-    ciphertext = aesgcm.encrypt(nonce, value.encode("utf-8"), None)
+    ciphertext = aesgcm.encrypt(nonce, value.encode("utf-8"), aad)
     return ".".join(
         [
             key_provider.get_key_version(),
@@ -140,14 +150,14 @@ def encrypt_text(value: str, key_provider: KeyProvider) -> str:
     )
 
 
-def decrypt_text(value: str, key_provider: KeyProvider) -> str:
+def decrypt_text(value: str, key_provider: KeyProvider, aad: bytes | None = None) -> str:
     try:
         key_version, encoded_nonce, encoded_ciphertext = value.split(".", maxsplit=2)
         if key_version != key_provider.get_key_version():
             raise ValueError("Unsupported key version.")
         nonce = base64.urlsafe_b64decode(encoded_nonce.encode("ascii"))
         ciphertext = base64.urlsafe_b64decode(encoded_ciphertext.encode("ascii"))
-        plaintext = AESGCM(key_provider.get_field_key()).decrypt(nonce, ciphertext, None)
+        plaintext = AESGCM(key_provider.get_field_key()).decrypt(nonce, ciphertext, aad)
     except (InvalidTag, ValueError) as exc:
         raise ValueError("Ciphertext could not be decrypted.") from exc
     return plaintext.decode("utf-8")

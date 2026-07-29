@@ -16,12 +16,16 @@ This supports group owner verification before full login is implemented. It must
 
 BE Phase 3 replaces `X-UFC-User-Id` with signed bearer access tokens and hashed refresh tokens as recorded in `docs/decisions/ADR-0004-security-baseline.md`.
 
+Refresh token rotation is single-use. The backend locks the stored token row while rotating it, revokes the used token, creates the replacement in the same transaction, and links both records through `family_id` and `replaced_by_token_id`. Reuse of a revoked refresh token revokes active tokens in the same family and emits a security warning log without token values.
+
 MVP roles are:
 
 - `USER`: may access only owned groups and later owned analysis results.
 - `ADMIN`: may access service operations data and masked user summaries.
 
 Admins do not receive raw financial transaction text, raw email, password hashes, refresh token hashes, or ciphertext fields by default.
+
+Login protection combines an in-memory short-window limiter with a database-backed failed-login counter and lockout. The in-memory limiter is cleared after a successful login. It is an MVP control only and must move to shared storage with IP-aware throttling before multi-process production use.
 
 ## MVP Requirements To Resolve Before Implementation
 

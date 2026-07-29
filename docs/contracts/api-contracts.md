@@ -217,7 +217,7 @@ Request:
 }
 ```
 
-Response: Signup token response. The used refresh token is revoked and replaced.
+Response: Signup token response. The used refresh token is revoked and replaced in one transaction. Reusing a revoked refresh token returns `401 AUTHENTICATION_REQUIRED` and revokes active tokens in the same refresh token family.
 
 ### Logout
 

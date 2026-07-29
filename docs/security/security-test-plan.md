@@ -16,7 +16,11 @@
 - `SEC-06`: Failed login logs do not include password or token values.
 - `SEC-07`: Tampered ciphertext cannot be decrypted.
 - Login rate limit blocks repeated failed attempts.
+- Successful login clears the in-memory login rate limit counter.
 - Refresh and logout token flow works.
+- Refresh token reuse revokes the refresh token family.
+- PostgreSQL concurrent refresh calls with the same token allow only one rotation.
+- Email ciphertext is bound to user context through AES-GCM AAD.
 
 ## Future Backend Phase
 

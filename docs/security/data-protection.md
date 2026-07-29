@@ -12,6 +12,8 @@ BE Phase 3 stores email as:
 
 AES-256-GCM is used for field encryption. Email lookup uses HMAC over the normalized email value.
 
+Encrypted email uses AES-GCM additional authenticated data bound to the user context: `user:{user_id}:email`. Moving ciphertext between users fails decryption instead of silently returning another user's email.
+
 ## Logging
 
 Logs must not include:
