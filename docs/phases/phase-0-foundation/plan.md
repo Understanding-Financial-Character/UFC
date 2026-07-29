@@ -39,7 +39,7 @@ Establish development tracking standards that connect PRD scope, architecture, c
 - Existing project decisions and architecture documents are read before editing.
 - No uncommitted user changes are present.
 
-## Completion Criteria
+## Product Completion Criteria
 
 - Required Phase 0 document structure exists.
 - MVP scope and exclusions are clearly documented.
@@ -47,4 +47,13 @@ Establish development tracking standards that connect PRD scope, architecture, c
 - API and analysis contract management rules are documented.
 - Security data classification and secret handling standards are documented.
 - Phase progress and verification files reflect actual work and commands.
-- Changes are self-reviewed, committed, and pushed to the phase branch.
+- First vertical slice contract requirements are documented before backend implementation starts.
+
+## Delivery Criteria
+
+- Phase branch is pushed.
+- PR is linked in `progress.md`.
+- Review findings are resolved.
+- PR is merged.
+- Merge commit or squash commit is recorded.
+- Completion date is recorded.

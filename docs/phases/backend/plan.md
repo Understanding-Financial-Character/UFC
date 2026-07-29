@@ -30,7 +30,10 @@ Implement backend APIs and persistence for MVP workflows after contracts are fin
 ## Prerequisites
 
 - Phase 0 tracking standards are complete.
-- Backend API contracts are finalized for the first implementation slice.
+- First vertical slice API contracts are finalized before implementation starts.
+- MVP authentication approach is decided and recorded in an ADR.
+- User, Group, and Membership authorization model is finalized at contract level.
+- Public share link access and expiration policy is decided before share card APIs are implemented.
 
 ## Completion Criteria
 

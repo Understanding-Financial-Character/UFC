@@ -2,20 +2,20 @@
 
 ## Executed Commands
 
-Not started.
+NOT_STARTED.
 
 ## Test Results
 
-Not started.
+NOT_STARTED.
 
 ## API Verification Results
 
-Not started.
+NOT_STARTED.
 
 ## Evidence
 
-Not started.
+NOT_STARTED.
 
 ## Known Limitations
 
-Backend implementation has not started.
+Backend implementation is `NOT_STARTED`.
