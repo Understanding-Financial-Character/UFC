@@ -39,6 +39,22 @@ Implement backend APIs and persistence for MVP workflows after contracts are fin
 - 2-4 member readiness rule
 - Group readiness status and `can_analyze` calculation without depending on analysis result schemas
 
+### BE Phase 3 - Authentication, Authorization, and Financial Security Baseline
+
+- Data classification before sensitive financial data ingestion
+- Signup, login, refresh, logout, and `/me` APIs
+- Argon2id password hashing
+- Refresh token hash persistence
+- `USER` and `ADMIN` role authorization
+- Bearer-token principal checks for group ownership
+- Admin masked user summary API
+- AES-256-GCM field encryption foundation
+- Email ciphertext plus lookup HMAC storage
+- Required secret validation and key version storage
+- Configured CORS origin restriction
+- Login rate limiting and failed login lockout
+- Security tests for plaintext storage, ownership bypass, response masking, required secrets, log hygiene, and ciphertext tampering
+
 ## Excluded Scope
 
 - Real bank account connection
@@ -48,6 +64,9 @@ Implement backend APIs and persistence for MVP workflows after contracts are fin
 - Full login, password, session, OAuth, or JWT implementation for BE Phase 2
 - Transaction upload and analysis execution for BE Phase 2
 - Analysis run status on `Group`; later phases must model analysis execution separately
+- Transaction storage, financial report storage, and AI report encryption field application for BE Phase 3
+- KMS-backed key provider for BE Phase 3
+- `ANALYST` role for BE Phase 3
 
 ## Modules Expected To Change
 
@@ -58,6 +77,7 @@ Implement backend APIs and persistence for MVP workflows after contracts are fin
 - `backend/migrations`
 - `backend/tests`
 - `docs/contracts`
+- `docs/security`
 
 ## Prerequisites
 

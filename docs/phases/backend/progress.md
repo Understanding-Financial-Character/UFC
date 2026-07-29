@@ -33,6 +33,17 @@ VERIFYING
 - Added group row locking for member additions and 409 handling for member display name constraint conflicts.
 - Added Alembic migration for the Phase 2 domain tables and enums.
 - Added integration tests for user, group, member, MBTI validation, member count limit, owner access, and status transitions.
+- Added BE Phase 3 auth APIs for signup, login, refresh, logout, and `/me`.
+- Replaced `X-UFC-User-Id` group authorization with bearer access-token principal checks.
+- Added Argon2id password hashing and refresh token hash storage.
+- Added `USER` and `ADMIN` roles with `/api/v1/admin/users` masked user summaries.
+- Added AES-256-GCM field encryption helpers, email lookup HMAC, key version storage, and `KeyProvider` interface.
+- Added AES-GCM AAD binding for encrypted email.
+- Added required security setting validation, auth/HMAC secret strength checks, and CORS origin configuration.
+- Added login rate limiting, success-counter clearing, failed login lockout, and row locking for failed login updates.
+- Added single-use refresh token rotation with row locking, token family metadata, reuse detection, and family revocation.
+- Added Phase 3 security migrations for user auth fields, refresh tokens, and refresh token rotation metadata.
+- Added security tests SEC-01 through SEC-07 plus auth flow, rate-limit, refresh reuse, and PostgreSQL concurrent refresh coverage.
 
 ## Changed Contracts
 
@@ -42,17 +53,19 @@ VERIFYING
 - Added Phase 2 user and group contracts, including `POST /api/v1/users` and temporary `X-UFC-User-Id` header principal checks.
 - Updated group contract so group creation starts with zero members and member readiness is calculated after member registration.
 - Updated group status contract to exclude analysis execution states from `Group.status`.
+- Added Phase 3 auth/admin contracts and bearer-token protection for group APIs.
+- Added auth/security error codes: `AUTHENTICATION_REQUIRED`, `PERMISSION_DENIED`, and `RATE_LIMITED`.
 
 ## Remaining Work
 
-- Create PR for `feat/be-phase-2-group-member-domain`.
+- Create PR for `feat/be-phase-3-security-baseline`.
 - Record PR link and final merge commit after review.
 - Transaction APIs remain for a later backend slice.
-- Full login implementation remains for a later backend slice.
+- Applying encryption to transaction, finance free-text, and AI report fields remains for the slice that introduces those persisted fields.
 - Split production Docker image from development/test dependencies in a later hardening slice.
 
 ## Linked Branch, PR, Commits
 
-- Branch: `feat/be-phase-2-group-member-domain`
+- Branch: `feat/be-phase-3-security-baseline`
 - PR: Pending
 - Commits: Pending

@@ -22,8 +22,11 @@ Defines the shared error response shape for MVP APIs.
 | Code | HTTP status | Meaning |
 | --- | --- | --- |
 | `VALIDATION_ERROR` | `400` | Request payload or file input is invalid. |
+| `AUTHENTICATION_REQUIRED` | `401` | Authentication credentials are missing, invalid, expired, or locked. |
+| `PERMISSION_DENIED` | `403` | Authenticated user does not have the required role or permission. |
 | `NOT_FOUND` | `404` | Requested resource does not exist or is not accessible. |
 | `CONFLICT` | `409` | Request conflicts with current resource state. |
+| `RATE_LIMITED` | `429` | Request exceeded an endpoint-specific rate limit. |
 | `DATABASE_UNAVAILABLE` | `503` | Database readiness check failed. |
 | `AI_REPORT_UNAVAILABLE` | `503` | LLM report generation failed or is temporarily unavailable. |
 | `INTERNAL_ERROR` | `500` | Unexpected server failure. |

@@ -1,5 +1,15 @@
 # Data Classification
 
+## BE Phase 3 Classification
+
+| Classification | UFC Data |
+| --- | --- |
+| Public | Service descriptions, MBTI explanation copy |
+| Internal | Analysis rules, prompt versions, model settings |
+| Personal Data | Email, username, personal MBTI |
+| Sensitive Financial Data | Transaction rows, spending patterns, financial reports |
+| Authentication Data | Passwords, refresh tokens |
+
 ## Public
 
 Information safe to publish in the repository.
@@ -27,6 +37,17 @@ Data requiring minimization and controlled access.
 - Group membership data
 - Analysis metrics and AI reports
 - Share card metadata before explicit user sharing
+- Email and personal MBTI values are treated as personal data within this sensitive-control boundary.
+
+## Authentication Data
+
+Data that must never be stored or logged in plaintext.
+
+- Passwords
+- Refresh tokens
+- Access tokens
+
+Passwords are stored only as Argon2id hashes. Refresh tokens are stored only as SHA-256 hashes.
 
 ## Restricted
 
@@ -52,6 +73,7 @@ MVP development may use synthetic or manually uploaded transaction-like data onl
 | Internal | Internal repository and project tools only | Minimized | Prohibited by default | Synthetic data only | Project members |
 | Sensitive | Application database only; encryption required before production-like use | Raw values prohibited | Allowed only after field minimization | Synthetic or de-identified data only | Resource owner and group members |
 | Restricted | Not allowed in MVP storage | Prohibited | Prohibited | Prohibited | Not applicable |
+| Authentication Data | Application database hashes only | Prohibited | Prohibited | Synthetic test credentials only | Owning user for token lifecycle; backend verification only |
 
 ## LLM Transfer Rules
 

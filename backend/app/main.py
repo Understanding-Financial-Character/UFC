@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
+from starlette.middleware.cors import CORSMiddleware
 
 from app.api.dependencies import DatabaseSession
 from app.api.router import router as api_v1_router
@@ -11,11 +12,13 @@ from app.core.exceptions import (
     validation_exception_handler,
 )
 from app.core.logging import configure_logging
+from app.core.security import validate_required_security_settings
 from app.core.trace import trace_id_middleware
 from app.db.health import check_database
 
 
 def create_app() -> FastAPI:
+    validate_required_security_settings(settings)
     configure_logging(settings)
     app = FastAPI(
         title=settings.app_name,
@@ -25,6 +28,13 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-Trace-Id"],
+    )
     app.middleware("http")(trace_id_middleware)
     app.add_exception_handler(ApiException, api_exception_handler)
     app.add_exception_handler(RequestValidationError, validation_exception_handler)

@@ -51,6 +51,27 @@ Until full login is implemented, BE Phase 2 uses:
 
 This temporary identity approach is recorded in `docs/decisions/ADR-0003-phase-2-user-identity.md`.
 
+## Phase 3 Authentication and Authorization
+
+BE Phase 3 replaces `X-UFC-User-Id` with bearer access tokens issued by the auth APIs:
+
+- `POST /api/v1/auth/signup`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/me`
+- `GET /api/v1/admin/users`
+
+Protected user APIs require:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+Refresh tokens are opaque random tokens. Only their SHA-256 hashes are stored.
+
+Email is stored as `email_ciphertext`, `email_lookup_hmac`, and `email_key_version`. API responses must not expose these storage fields.
+
 ## Backend Foundation Endpoints
 
 These endpoints are implemented before domain APIs so Docker, database, and OpenAPI readiness can be verified.
@@ -117,20 +138,27 @@ Response:
 - Success status: `200 OK`
 - Error codes: `INTERNAL_ERROR`
 
-### Create User
+### Create User (Deprecated By Phase 3)
 
 - Method and path: `POST /users`
+- Status: Not mounted in BE Phase 3; use `POST /auth/signup`.
+
+### Signup
+
+- Method and path: `POST /auth/signup`
 - Sync or async: Sync
 - Idempotency: Not required for MVP
-- Resource owner: Public MVP signup
+- Resource owner: Public signup
 - Success status: `201 Created`
-- Error codes: `VALIDATION_ERROR`, `INTERNAL_ERROR`
+- Error codes: `VALIDATION_ERROR`, `CONFLICT`, `INTERNAL_ERROR`
 
 Request:
 
 ```json
 {
-  "display_name": "민지"
+  "email": "minji@example.com",
+  "display_name": "민지",
+  "password": "correct-password"
 }
 ```
 
@@ -139,25 +167,140 @@ Response:
 ```json
 {
   "schema_version": "1.0",
-  "user_id": "uuid",
-  "display_name": "민지",
-  "created_at": "2026-07-29T00:00:00Z"
+  "access_token": "opaque-signed-token",
+  "refresh_token": "opaque-random-token",
+  "token_type": "bearer",
+  "expires_in": 900
 }
 ```
 
 Field rules:
 
+- `email`: email string, required; normalized to lowercase for lookup
 - `display_name`: string, required, 1-80 characters after trimming whitespace; blank values are rejected
+- `password`: string, required, 12-128 characters; stored only as Argon2id hash
+
+### Login
+
+- Method and path: `POST /auth/login`
+- Sync or async: Sync
+- Idempotency: Not required
+- Resource owner: Public credential exchange
+- Success status: `200 OK`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `RATE_LIMITED`, `INTERNAL_ERROR`
+
+Request:
+
+```json
+{
+  "email": "minji@example.com",
+  "password": "correct-password"
+}
+```
+
+Response: Signup token response.
+
+### Refresh Token
+
+- Method and path: `POST /auth/refresh`
+- Sync or async: Sync
+- Idempotency: Not required
+- Resource owner: Token holder
+- Success status: `200 OK`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `INTERNAL_ERROR`
+
+Request:
+
+```json
+{
+  "refresh_token": "opaque-random-token"
+}
+```
+
+Response: Signup token response. The used refresh token is revoked and replaced in one transaction. Reusing a revoked refresh token returns `401 AUTHENTICATION_REQUIRED` and revokes active tokens in the same refresh token family. If reuse is detected during a concurrent refresh, a token returned by the successful request can also be revoked and the client must require login again.
+
+### Logout
+
+- Method and path: `POST /auth/logout`
+- Sync or async: Sync
+- Idempotency: Effectively idempotent
+- Resource owner: Token holder
+- Success status: `200 OK`
+- Error codes: `VALIDATION_ERROR`, `INTERNAL_ERROR`
+
+Request:
+
+```json
+{
+  "refresh_token": "opaque-random-token"
+}
+```
+
+Response:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+### Me
+
+- Method and path: `GET /me`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: Authenticated user
+- Success status: `200 OK`
+- Error codes: `AUTHENTICATION_REQUIRED`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
+
+Response:
+
+```json
+{
+  "schema_version": "1.0",
+  "user_id": "uuid",
+  "display_name": "민지",
+  "role": "USER",
+  "created_at": "2026-07-29T00:00:00Z"
+}
+```
+
+### Admin User Summary
+
+- Method and path: `GET /admin/users`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: ADMIN
+- Success status: `200 OK`
+- Error codes: `AUTHENTICATION_REQUIRED`, `PERMISSION_DENIED`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
+
+Response:
+
+```json
+[
+  {
+    "schema_version": "1.0",
+    "user_id": "uuid",
+    "display_name": "민지",
+    "masked_email": "m***i@example.com",
+    "role": "USER",
+    "failed_login_count": 0,
+    "created_at": "2026-07-29T00:00:00Z"
+  }
+]
+```
 
 ### Create Group
 
 - Method and path: `POST /groups`
 - Sync or async: Sync
 - Idempotency: Not required for MVP
-- Resource owner: Header-identified MVP user creating the group
+- Resource owner: Authenticated USER or ADMIN creating the group
 - Success status: `201 Created`
-- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`
-- Required headers: `X-UFC-User-Id`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
 
 Request:
 
@@ -199,10 +342,10 @@ Field rules:
 - Method and path: `GET /groups`
 - Sync or async: Sync
 - Idempotency: Safe read
-- Resource owner: Header-identified MVP user
+- Resource owner: Authenticated USER or ADMIN
 - Success status: `200 OK`
-- Error codes: `VALIDATION_ERROR`, `INTERNAL_ERROR`
-- Required headers: `X-UFC-User-Id`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
 
 Response: array of Create Group response objects.
 
@@ -213,8 +356,8 @@ Response: array of Create Group response objects.
 - Idempotency: Safe read
 - Resource owner: Group owner
 - Success status: `200 OK`
-- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`
-- Required headers: `X-UFC-User-Id`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
 
 Response: Create Group response object, including `members`.
 
@@ -225,8 +368,8 @@ Response: Create Group response object, including `members`.
 - Idempotency: Not required for MVP
 - Resource owner: Group owner
 - Success status: `200 OK`
-- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`
-- Required headers: `X-UFC-User-Id`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
 
 Request fields are optional individually, but at least one field must be provided:
 
@@ -246,8 +389,8 @@ Response: Create Group response object.
 - Idempotency: Not required for MVP
 - Resource owner: Group owner or authorized group member
 - Success status: `201 Created`
-- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
-- Required headers: `X-UFC-User-Id`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
 
 Request:
 
@@ -289,8 +432,8 @@ Field rules:
 - Idempotency: Not required for MVP
 - Resource owner: Group owner
 - Success status: `200 OK`
-- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
-- Required headers: `X-UFC-User-Id`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
 
 Request fields are optional individually, but at least one field must be provided:
 
@@ -310,8 +453,8 @@ Response: Add Group Member response object.
 - Idempotency: Not required for MVP
 - Resource owner: Group owner
 - Success status: `204 No Content`
-- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`
-- Required headers: `X-UFC-User-Id`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
 
 ### Upload Transactions
 
