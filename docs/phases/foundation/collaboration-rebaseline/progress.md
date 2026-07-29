@@ -25,7 +25,9 @@ None.
 Pending.
 
 ## Commits
-Pending.
+- `a8cb8b7` docs: rebaseline UFC development phases
+- `9e346df` docs: align data analysis and rule engine contracts
+- `7580445` chore: add make based local development workflow
 
 ## Blockers
 None.
