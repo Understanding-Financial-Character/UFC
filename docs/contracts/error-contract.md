@@ -12,7 +12,7 @@ Defines the shared error response shape for MVP APIs.
     "code": "string",
     "message": "string",
     "details": {},
-    "request_id": "string"
+    "traceId": "string"
   }
 }
 ```
@@ -24,6 +24,7 @@ Defines the shared error response shape for MVP APIs.
 | `VALIDATION_ERROR` | `400` | Request payload or file input is invalid. |
 | `NOT_FOUND` | `404` | Requested resource does not exist or is not accessible. |
 | `CONFLICT` | `409` | Request conflicts with current resource state. |
+| `DATABASE_UNAVAILABLE` | `503` | Database readiness check failed. |
 | `AI_REPORT_UNAVAILABLE` | `503` | LLM report generation failed or is temporarily unavailable. |
 | `INTERNAL_ERROR` | `500` | Unexpected server failure. |
 
@@ -34,3 +35,5 @@ Defines the shared error response shape for MVP APIs.
 - Financial data values should not be repeated in error messages unless required for user correction.
 - `details` may include field names, enum values, and validation ranges.
 - `details` must not include raw uploaded transaction rows, API keys, account identifiers, or full LLM payloads.
+- `traceId` must match the request trace identifier and be returned in the `X-Trace-Id` response header.
+- Validation error details must be sanitized to `field`, `type`, and `message`; raw `input` and raw validator context must not be returned.
