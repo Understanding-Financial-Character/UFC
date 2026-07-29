@@ -2,7 +2,9 @@
 
 ## Metadata
 
-- Verified commit: `230048ba8a5f0ed0333bed42ea50a1c27f7a1b3f`
+- Verified scope: Current working tree on `docs/phase-0-development-tracking` before each review-fix commit
+- Last pushed review baseline: `11fa1973e4a494bf53336ea17ae2d8ce55f46e26`
+- Current PR head: See PR #2
 - Verified at: `2026-07-29`
 - Environment: macOS, Docker Compose
 - Verifier: `dlsrnjs125`
@@ -20,4 +22,4 @@
 
 No runtime API, frontend, database schema, or AI implementation changed in Phase 0.
 
-Review-fix verification was also run on the `docs/phase-0-development-tracking` working tree before the follow-up review-fix commit.
+Review-fix verification was run on the `docs/phase-0-development-tracking` working tree before each follow-up review-fix commit. The PR page is the source of truth for the moving branch head while review commits are still being added.

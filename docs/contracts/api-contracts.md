@@ -119,10 +119,10 @@ Field rules:
 ### Upload Transactions
 
 - Method and path: `POST /groups/{groupId}/transactions:upload`
-- Sync or async: Sync for file validation and accepted record persistence
+- Sync or async: Sync for MVP validation and accepted record persistence
 - Idempotency: Recommended via client-supplied upload checksum in backend phase
 - Resource owner: Authorized group member
-- Success status: `202 Accepted`
+- Success status: `201 Created`
 - Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
 
 Request:
@@ -146,7 +146,7 @@ Response:
   "source_type": "MOCK_SCENARIO",
   "accepted_count": 42,
   "rejected_count": 0,
-  "status": "ACCEPTED"
+  "status": "COMPLETED"
 }
 ```
 
@@ -155,7 +155,7 @@ Field rules:
 - `source_type`: enum, required, one of `MOCK_SCENARIO`, `CSV_UPLOAD`, `MANUAL_ENTRY`
 - `scenario_id`: string, optional, required when `source_type` is `MOCK_SCENARIO`
 - `transactions`: array, optional for mock scenario, required for upload or manual entry
-- `status`: enum, required, one of `ACCEPTED`, `PARTIALLY_ACCEPTED`, `REJECTED`
+- `status`: enum, required, one of `COMPLETED`, `PARTIALLY_COMPLETED`, `FAILED`
 
 ### Create Analysis
 
@@ -164,7 +164,7 @@ Field rules:
 - Idempotency: Recommended for repeated requests with the same group and period
 - Resource owner: Authorized group member
 - Success status: `202 Accepted`
-- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `ANALYSIS_LIMITED_DATA`, `INTERNAL_ERROR`
+- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
 
 Request:
 
@@ -201,7 +201,7 @@ Field rules:
 - Idempotency: Safe read
 - Resource owner: Authorized member of the analysis group
 - Success status: `200 OK`
-- Error codes: `NOT_FOUND`, `ANALYSIS_NOT_READY`, `INTERNAL_ERROR`
+- Error codes: `NOT_FOUND`, `INTERNAL_ERROR`
 
 Response:
 
@@ -224,6 +224,8 @@ Response:
 
 This response must follow `docs/contracts/analysis-output-contract.md`.
 
+`PENDING`, `RUNNING`, `COMPLETED`, and `FAILED` analysis states are returned as `200 OK` lookup responses. Limited but usable data is not an API error; it is represented as `result_status: "PROVISIONAL"` with `provisional_reasons`.
+
 ### Get AI Report
 
 - Method and path: `GET /analyses/{analysisId}/report`
@@ -231,7 +233,7 @@ This response must follow `docs/contracts/analysis-output-contract.md`.
 - Idempotency: Safe read
 - Resource owner: Authorized member of the analysis group
 - Success status: `200 OK`
-- Error codes: `NOT_FOUND`, `ANALYSIS_NOT_READY`, `AI_REPORT_UNAVAILABLE`, `INTERNAL_ERROR`
+- Error codes: `NOT_FOUND`, `AI_REPORT_UNAVAILABLE`, `INTERNAL_ERROR`
 
 Response:
 
@@ -258,6 +260,17 @@ Field rules:
 - `summary`: string, required when `status` is `COMPLETED`
 - `sections`: array, required when `status` is `COMPLETED`
 - `limitations`: array of strings, required, may be empty
+
+`PENDING`, `RUNNING`, `COMPLETED`, and `FAILED` report states are returned as `200 OK` lookup responses when the report resource exists. Temporary LLM service failure uses `AI_REPORT_UNAVAILABLE`.
+
+## Versioning Rules
+
+- `schema_version` versions the individual response schema, not the whole API surface.
+- Additive optional fields do not require a major version change.
+- Removing, renaming, or changing the meaning or type of a field requires a major version change.
+- Analysis output schema may evolve independently from group, upload, or report response schemas.
+- URI versioning is not used during the MVP.
+- If independent schema tracking becomes hard to read, schema values may move from `1.0` to namespaced values such as `analysis-output/1.0`.
 
 ## Status
 

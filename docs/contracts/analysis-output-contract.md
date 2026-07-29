@@ -14,8 +14,8 @@ Current draft schema version: `1.0`.
 - `analysis_id`: UUID string, required
 - `group_id`: UUID string, required
 - `status`: enum, required, one of `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`
-- `result_status`: enum, required when `status` is `COMPLETED`, one of `FINAL`, `PROVISIONAL`
-- `provisional_reasons`: string enum array, required, empty when `result_status` is `FINAL`
+- `result_status`: enum, required when `status` is `COMPLETED`, one of `STANDARD`, `PROVISIONAL`
+- `provisional_reasons`: string enum array, required, empty when `result_status` is `STANDARD`
 - `analysis_period`: object, required
 - `transaction_count`: integer, required, minimum 0
 - `spending_mbti`: MBTI enum string, nullable until `status` is `COMPLETED`
@@ -43,6 +43,8 @@ Current draft schema version: `1.0`.
 - `LOW`
 - `MEDIUM`
 - `HIGH`
+
+`STANDARD` means the configured MVP data sufficiency rules were met. It does not mean the result is a personality diagnosis or permanent characterization.
 
 ## Object Shapes
 

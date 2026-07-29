@@ -84,13 +84,15 @@ Component phases do not by themselves prove a user-facing MVP workflow is comple
 
 Each `verification.md` should include:
 
-- Verified commit
+- Verified scope or verified commit
 - Verified at
 - Environment
 - Verifier
 - Evidence file links when output is long
 
 Long terminal output should be stored under `docs/evidence/<phase-name>/`.
+
+For an open PR with additional review commits, avoid recording the moving branch head as a fixed value. Use `Current PR head: See PR #` and record the merge commit or squash commit after the PR is merged.
 
 ## MVP Exclusions
 

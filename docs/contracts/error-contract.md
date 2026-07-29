@@ -24,8 +24,6 @@ Defines the shared error response shape for MVP APIs.
 | `VALIDATION_ERROR` | `400` | Request payload or file input is invalid. |
 | `NOT_FOUND` | `404` | Requested resource does not exist or is not accessible. |
 | `CONFLICT` | `409` | Request conflicts with current resource state. |
-| `ANALYSIS_NOT_READY` | `409` | Analysis result is still pending or unavailable. |
-| `ANALYSIS_LIMITED_DATA` | `422` | Analysis can run only as a provisional result. |
 | `AI_REPORT_UNAVAILABLE` | `503` | LLM report generation failed or is temporarily unavailable. |
 | `INTERNAL_ERROR` | `500` | Unexpected server failure. |
 

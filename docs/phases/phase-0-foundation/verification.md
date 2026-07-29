@@ -2,7 +2,9 @@
 
 ## Verification Metadata
 
-- Verified commit: `230048ba8a5f0ed0333bed42ea50a1c27f7a1b3f`
+- Verified scope: Current working tree on `docs/phase-0-development-tracking` before each review-fix commit
+- Last pushed review baseline: `11fa1973e4a494bf53336ea17ae2d8ce55f46e26`
+- Current PR head: See PR #2
 - Verified at: `2026-07-29`
 - Environment: macOS, Docker Compose
 - Verifier: `dlsrnjs125`

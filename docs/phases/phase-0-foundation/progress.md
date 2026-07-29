@@ -29,6 +29,8 @@ VERIFYING
 
 - Branch: `docs/phase-0-development-tracking`
 - PR: `#2 docs: establish phase 0 development tracking`
-- Head commit: `230048ba8a5f0ed0333bed42ea50a1c27f7a1b3f`
+- Initial implementation commit: `230048ba8a5f0ed0333bed42ea50a1c27f7a1b3f`
+- Review-fix commits: See PR #2 commit list
+- Current PR head: See PR #2
 - Merge commit or squash commit: Pending
 - Completion date: Pending
