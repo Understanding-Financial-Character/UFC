@@ -1,8 +1,7 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Header, Response, status
+from fastapi import APIRouter, Response, status
 
 from app.api.dependencies import DatabaseSession
+from app.modules.auth.dependencies import AuthenticatedPrincipal
 from app.modules.groups import service
 from app.modules.groups.models import Group, GroupMember
 from app.modules.groups.schemas import (
@@ -16,43 +15,43 @@ from app.modules.groups.schemas import (
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 
-# Temporary BE Phase 2 identity only.
-# This header is not an authentication boundary.
-CurrentUserId = Annotated[str, Header(alias="X-UFC-User-Id", min_length=1)]
-
 
 @router.post("", response_model=GroupResponse, status_code=status.HTTP_201_CREATED)
-def create_group(payload: GroupCreate, db: DatabaseSession, current_user_id: CurrentUserId) -> GroupResponse:
-    group = service.create_group(db, current_user_id, payload)
+def create_group(
+    payload: GroupCreate, db: DatabaseSession, principal: AuthenticatedPrincipal
+) -> GroupResponse:
+    group = service.create_group(db, principal.user_id, payload)
     return build_group_response(group)
 
 
 @router.get("", response_model=list[GroupResponse])
-def list_groups(db: DatabaseSession, current_user_id: CurrentUserId) -> list[GroupResponse]:
-    groups = service.list_groups(db, current_user_id)
+def list_groups(db: DatabaseSession, principal: AuthenticatedPrincipal) -> list[GroupResponse]:
+    groups = service.list_groups(db, principal.user_id)
     return [build_group_response(group) for group in groups]
 
 
 @router.get("/{group_id}", response_model=GroupResponse)
-def get_group(group_id: str, db: DatabaseSession, current_user_id: CurrentUserId) -> GroupResponse:
-    group = service.get_owned_group(db, group_id, current_user_id)
+def get_group(
+    group_id: str, db: DatabaseSession, principal: AuthenticatedPrincipal
+) -> GroupResponse:
+    group = service.get_owned_group(db, group_id, principal.user_id)
     return build_group_response(group)
 
 
 @router.patch("/{group_id}", response_model=GroupResponse)
 def update_group(
-    group_id: str, payload: GroupUpdate, db: DatabaseSession, current_user_id: CurrentUserId
+    group_id: str, payload: GroupUpdate, db: DatabaseSession, principal: AuthenticatedPrincipal
 ) -> GroupResponse:
-    group = service.get_owned_group(db, group_id, current_user_id)
+    group = service.get_owned_group(db, group_id, principal.user_id)
     updated_group = service.update_group(db, group, payload)
     return build_group_response(updated_group)
 
 
 @router.post("/{group_id}/members", response_model=MemberResponse, status_code=status.HTTP_201_CREATED)
 def add_member(
-    group_id: str, payload: MemberCreate, db: DatabaseSession, current_user_id: CurrentUserId
+    group_id: str, payload: MemberCreate, db: DatabaseSession, principal: AuthenticatedPrincipal
 ) -> MemberResponse:
-    group = service.get_owned_group_for_update(db, group_id, current_user_id)
+    group = service.get_owned_group_for_update(db, group_id, principal.user_id)
     member = service.add_member(db, group, payload)
     return build_member_response(member)
 
@@ -63,18 +62,18 @@ def update_member(
     member_id: str,
     payload: MemberUpdate,
     db: DatabaseSession,
-    current_user_id: CurrentUserId,
+    principal: AuthenticatedPrincipal,
 ) -> MemberResponse:
-    group = service.get_owned_group(db, group_id, current_user_id)
+    group = service.get_owned_group(db, group_id, principal.user_id)
     member = service.update_member(db, group, member_id, payload)
     return build_member_response(member)
 
 
 @router.delete("/{group_id}/members/{member_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_member(
-    group_id: str, member_id: str, db: DatabaseSession, current_user_id: CurrentUserId
+    group_id: str, member_id: str, db: DatabaseSession, principal: AuthenticatedPrincipal
 ) -> Response:
-    group = service.get_owned_group(db, group_id, current_user_id)
+    group = service.get_owned_group(db, group_id, principal.user_id)
     service.delete_member(db, group, member_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
