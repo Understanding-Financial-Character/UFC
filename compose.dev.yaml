@@ -2,11 +2,6 @@ services:
   backend:
     volumes:
       - ./backend:/app
-    environment:
-      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:?AUTH_TOKEN_SECRET is required}
-      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?FIELD_ENCRYPTION_KEY is required}
-      FIELD_LOOKUP_HMAC_KEY: ${FIELD_LOOKUP_HMAC_KEY:?FIELD_LOOKUP_HMAC_KEY is required}
-      FIELD_KEY_VERSION: ${FIELD_KEY_VERSION:?FIELD_KEY_VERSION is required}
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:

@@ -9,17 +9,47 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-ufc} -d $${POSTGRES_DB:-ufc}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
   backend:
     build:
       context: ./backend
     environment:
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://ufc:ufc@db:5432/ufc}
       APP_ENV: ${APP_ENV:-local}
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+      API_V1_PREFIX: ${API_V1_PREFIX:-/api/v1}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://ufc:ufc@db:5432/ufc}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:?AUTH_TOKEN_SECRET is required}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:?FIELD_ENCRYPTION_KEY is required}
+      FIELD_LOOKUP_HMAC_KEY: ${FIELD_LOOKUP_HMAC_KEY:?FIELD_LOOKUP_HMAC_KEY is required}
+      FIELD_KEY_VERSION: ${FIELD_KEY_VERSION:?FIELD_KEY_VERSION is required}
+      LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434}
+      LLM_MODEL: ${LLM_MODEL:-qwen3:4b}
+      LLM_THINKING_ENABLED: ${LLM_THINKING_ENABLED:-false}
+      LLM_API_KEY: ${LLM_API_KEY:-}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).read()\"",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
 
   frontend:
     build:
@@ -27,9 +57,30 @@ services:
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://localhost:5173').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles:
+      - ai
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
 
 volumes:
   postgres_data:
+  ollama_data:
