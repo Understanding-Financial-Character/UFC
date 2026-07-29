@@ -7,10 +7,12 @@ PostgreSQL stores MVP relational data. Sensitive data must be minimized and scop
 BE Phase 3 stores email as:
 
 - `email_ciphertext`
-- `email_lookup_hmac`
+- `email_lookup_hmac` in the current codebase, equivalent to the target design concept `email_lookup_hash`
 - `email_key_version`
 
 AES-256-GCM is used for field encryption. Email lookup uses HMAC over the normalized email value.
+
+Plaintext email storage and plaintext email `UNIQUE` constraints are not allowed. Duplicate checks use the lookup HMAC/hash.
 
 Encrypted email uses AES-GCM additional authenticated data bound to the user context: `user:{user_id}:email`. Moving ciphertext between users fails decryption instead of silently returning another user's email.
 

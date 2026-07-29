@@ -2,34 +2,73 @@
 
 ## Purpose
 
-Defines the structured input that deterministic analysis and AI report generation may consume.
+Defines the structured input that backend orchestration passes into the Python analysis layer.
 
-## Required Conceptual Fields
+## Status
 
-- `group_id`: Internal group identifier
-- `analysis_period`: Start and end dates for the analyzed period
-- `members`: Member identifiers and self-declared MBTI values
-- `transactions`: Normalized transaction records
-- `scenario_source`: Uploaded data or mock scenario reference
+Target contract. Concrete implementation is owned by AN Phase 1 and AN Phase 2. PR #6 is tracked separately and is not merged into `main`.
+
+## Schema Version
+
+Target schema version: `analysis-input-v1`.
+
+## Required Fields
+
+- `analysisId`: analysis run id
+- `groupId`: group id
+- `members`: member id plus self-declared MBTI
+- `transactions`: normalized transactions
+- `schemaVersion`: `analysis-input-v1`
 
 ## Transaction Fields
 
-- Internal transaction identifier
-- Transaction date and time
-- Amount
-- Direction or transaction type
-- Merchant label or normalized merchant key
-- Category
-- Optional memo or scenario tag
-- Recurring or one-time marker when available
+- `occurredAt`: transaction datetime
+- `amount`: positive spending amount
+- `category`: normalized category code
+- `merchantKey`: normalized merchant key, optional
+- `isSharedExpense`: nullable boolean
+- `isPlanned`: nullable boolean
+- `isRecurring`: nullable boolean
+
+Tri-state boolean meaning:
+
+- `true`: confirmed yes
+- `false`: confirmed no
+- `null`: data missing or unknown
+
+`null` must not be treated as `false`.
+
+## Example
+
+```json
+{
+  "analysisId": "uuid",
+  "groupId": "uuid",
+  "members": [
+    {
+      "memberId": "uuid",
+      "mbtiType": "INTJ"
+    }
+  ],
+  "transactions": [
+    {
+      "occurredAt": "2026-07-01T12:30:00",
+      "amount": 32000,
+      "category": "FOOD",
+      "merchantKey": "restaurant-a",
+      "isSharedExpense": true,
+      "isPlanned": null,
+      "isRecurring": false
+    }
+  ],
+  "schemaVersion": "analysis-input-v1"
+}
+```
 
 ## Data Constraints
 
 - Real account numbers are not accepted.
-- Raw personal identifiers should be excluded unless needed for MVP behavior.
-- Synthetic data must be marked as synthetic.
+- User email, username, nickname, token, ciphertext, and secrets must be excluded.
+- Full transaction arrays must not be forwarded to Qwen3.
 - Uploaded data must be validated before analysis.
-
-## Status
-
-This is a Phase 0 conceptual contract. Backend implementation will convert it into concrete Pydantic schemas.
+- Synthetic data must be marked before result generation.
