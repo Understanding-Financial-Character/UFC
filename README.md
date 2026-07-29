@@ -1,36 +1,66 @@
 # UFC
 
-UFC(Understand Financial Character)는 개인 MBTI와 모임통장 소비 패턴을 함께 분석해, 소규모 모임의 공동 소비 성향을 MBTI 형식과 그래프, AI 요약 리포트로 보여주는 MVP 프로젝트입니다.
+UFC, Understand Financial Character, is an MVP that analyzes personal MBTI with 2-4 member group-account spending data and presents a service-specific consumption MBTI with evidence, graph-ready results, and a grounded Qwen3 4B report.
 
-## 핵심 범위
+## Current Status
 
-- 2~4인 모임 생성 및 구성원 MBTI 등록
-- 거래 내역 업로드 또는 Mock 데이터 선택
-- 소비 행동 지표 계산 및 모임통장 소비 MBTI 산출
-- 개인 MBTI와 통장 소비 MBTI 비교
-- LLM 기반 요약 리포트와 소비 패턴 그래프 제공
+- Phase 0: completed
+- BE Phase 1: FastAPI foundation completed
+- BE Phase 2: user, group, and member domain completed
+- BE Phase 3: authentication, authorization, and data protection completed
+- BE Phase 4 and later backend work: not started
+- Analysis, AI, frontend, and integration phases: not started on `main`
+- PR #6 is tracked as Analysis / AN Phase 2 behavior metrics work and is not part of `main`
 
-## 기술 스택
+## Stack
 
 - Backend: Python, FastAPI, SQLAlchemy, Alembic, Pydantic
 - Database: PostgreSQL
 - Frontend: React, TypeScript, Vite
-- Infra: Docker Compose, Nginx
+- AI runtime target: Ollama with Qwen3 4B
+- Infra: Docker Compose and Makefile
 
-## 문서
-
-- [아키텍처](docs/architecture/overview.md)
-- [API 계약](docs/contracts/api-contracts.md)
-- [개발 Phase](docs/phases/README.md)
-- [보안 기준](docs/security/data-classification.md)
-- [용어집](docs/development/glossary.md)
-- [개발 가이드](docs/development/setup.md)
-- [PRD 요약](docs/evidence/prd-summary.md)
-- [트러블슈팅](docs/troubleshooting/README.md)
-
-## 로컬 개발
+## Local Development
 
 ```bash
-cp .env.example .env
-docker compose -f compose.yaml -f compose.dev.yaml up --build
+make dev
 ```
+
+Stop services:
+
+```bash
+make down
+```
+
+Run full local verification:
+
+```bash
+make verify
+```
+
+## Common Commands
+
+- `make help`: list commands
+- `make init`: create `.env` if missing and generate local secrets
+- `make ps`: show service status
+- `make logs`: follow logs
+- `make migrate`: run Alembic migrations
+- `make test`: run backend tests
+- `make lint`: run backend and frontend lint
+
+## Documentation Entry Points
+
+- [Architecture](docs/architecture/overview.md)
+- [Data Flow](docs/architecture/data-flow.md)
+- [Data Model](docs/architecture/data-model.md)
+- [Analysis Rules](docs/analysis/README.md)
+- [API Contracts](docs/contracts/api-contracts.md)
+- [Development Phases](docs/phases/README.md)
+- [Development Setup](docs/development/setup.md)
+- [Team Workflow](docs/development/team-workflow.md)
+- [Security Baseline](docs/security/data-classification.md)
+- [Troubleshooting](docs/troubleshooting/README.md)
+
+## MVP Exclusions
+
+UFC does not provide real personality diagnosis, real financial diagnosis, bank account integration, transfers, automatic payments, credit score analysis, or financial product recommendations.

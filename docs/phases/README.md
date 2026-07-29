@@ -8,9 +8,9 @@ Phase documents connect PRD, architecture, contracts, implementation work, and v
 
 Each phase folder keeps three files:
 
-- `plan.md`: goal, scope, exclusions, changed modules, prerequisites, completion criteria
-- `progress.md`: status, implemented work, contract changes, remaining work, linked branch, PR, commits
-- `verification.md`: commands, test results, API verification, screen or terminal evidence, known limitations
+- `plan.md`: `Status`, `Goal`, `Why`, `Prerequisites`, `In Scope`, `Out of Scope`, `Responsible Modules`, `Contracts`, `Data Changes`, `Security Considerations`, `Implementation Tasks`, `Test Scenarios`, `Completion Criteria`, `Branch`, and `Dependencies`
+- `progress.md`: `Current Status`, `Implemented`, `Remaining`, `Contract Changes`, `Migration Changes`, `Linked PR`, `Commits`, `Blockers`, and `Handover Notes`
+- `verification.md`: `Verified Commit`, `Verified At`, `Environment`, `Commands`, `Results`, `API Evidence`, `DB Evidence`, `Security Evidence`, and `Known Limitations`
 
 Troubleshooting details are not duplicated in phase folders. Link to `docs/troubleshooting` when a reusable issue is discovered.
 
@@ -54,6 +54,73 @@ Status transition rules:
 - Before PR creation, record PR as `Pending`.
 - After PR creation, update the phase progress document with the PR number and head commit in a follow-up commit.
 - After merge, update the phase progress document with `COMPLETED`, merge commit or squash commit, and completed date.
+
+## Current Phase Tracks
+
+### Foundation
+
+| Phase | Status | PR |
+| --- | --- | --- |
+| Phase 0 Foundation | COMPLETED | #2 |
+| Collaboration Rebaseline Foundation | IN_PROGRESS | Pending |
+
+### Backend
+
+| Phase | Status | PR |
+| --- | --- | --- |
+| BE Phase 1 - FastAPI Foundation | COMPLETED | #3 |
+| BE Phase 2 - Group Member Domain | COMPLETED | #4 |
+| BE Phase 3 - Security Baseline | COMPLETED | #5 |
+| BE Phase 4 - Transaction Input | NOT_STARTED | Not assigned |
+| BE Phase 5 - Analysis Persistence | NOT_STARTED | Not assigned |
+| BE Phase 6 - Analysis Orchestration | NOT_STARTED | Not assigned |
+| BE Phase 7 - Admin Audit | NOT_STARTED | Not assigned |
+
+### Analysis
+
+| Phase | Status | PR |
+| --- | --- | --- |
+| AN Phase 1 - Preprocessing and Data Quality | NOT_STARTED | Not assigned |
+| AN Phase 2 - Behavior Metrics | IN_PROGRESS | #6 |
+| AN Phase 3 - Consumption MBTI Rule Engine | NOT_STARTED | Not assigned |
+
+PR #6 is tracked as Analysis / AN Phase 2. GitHub connector state observed during this rebaseline: `closed`, `merged=false`, head `ddc59f5d986518a966fba6d16e013df940a50b08`. It is not merged into `main`, so it is not recorded as completed implementation.
+
+### AI
+
+| Phase | Status | PR |
+| --- | --- | --- |
+| AI Phase 1 - Qwen3 Runtime | NOT_STARTED | Not assigned |
+| AI Phase 2 - Grounded Report | NOT_STARTED | Not assigned |
+
+### Frontend
+
+| Phase | Status | PR |
+| --- | --- | --- |
+| FE Phase 1 - Foundation Auth | NOT_STARTED | Not assigned |
+| FE Phase 2 - Group Member Flow | NOT_STARTED | Not assigned |
+| FE Phase 3 - Transaction Analysis Flow | NOT_STARTED | Not assigned |
+| FE Phase 4 - Result Visualization | NOT_STARTED | Not assigned |
+| FE Phase 5 - Admin Console | NOT_STARTED | Not assigned |
+
+### Integration
+
+| Phase | Status | PR |
+| --- | --- | --- |
+| INT Phase 1 - E2E Security | NOT_STARTED | Not assigned |
+| INT Phase 2 - Delivery Evidence | NOT_STARTED | Not assigned |
+
+## Legacy Phase Documents
+
+The earlier consolidated phase documents remain in place for historical context:
+
+- `docs/phases/phase-0-foundation`
+- `docs/phases/backend/plan.md`, `progress.md`, `verification.md`
+- `docs/phases/ai/plan.md`, `progress.md`, `verification.md`
+- `docs/phases/frontend/plan.md`, `progress.md`, `verification.md`
+- `docs/phases/integration/plan.md`, `progress.md`, `verification.md`
+
+Do not delete legacy evidence. New work should use the foldered phase structure above.
 
 ## MVP Delivery Milestones
 
