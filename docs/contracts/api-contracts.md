@@ -40,6 +40,17 @@ All versioned response examples include `schema_version`.
 
 The first backend implementation slice must finalize and implement these contracts before frontend or AI integration depends on them.
 
+## Phase 2 User and Group Authorization
+
+Until full login is implemented, BE Phase 2 uses:
+
+- User creation: `POST /api/v1/users`
+- Header-identified MVP group endpoints: required `X-UFC-User-Id` header
+- Ownership rule: only the group owner may read or mutate a group and its members
+- Inaccessible group response: `404 NOT_FOUND`
+
+This temporary identity approach is recorded in `docs/decisions/ADR-0003-phase-2-user-identity.md`.
+
 ## Backend Foundation Endpoints
 
 These endpoints are implemented before domain APIs so Docker, database, and OpenAPI readiness can be verified.
@@ -106,14 +117,47 @@ Response:
 - Success status: `200 OK`
 - Error codes: `INTERNAL_ERROR`
 
+### Create User
+
+- Method and path: `POST /users`
+- Sync or async: Sync
+- Idempotency: Not required for MVP
+- Resource owner: Public MVP signup
+- Success status: `201 Created`
+- Error codes: `VALIDATION_ERROR`, `INTERNAL_ERROR`
+
+Request:
+
+```json
+{
+  "display_name": "민지"
+}
+```
+
+Response:
+
+```json
+{
+  "schema_version": "1.0",
+  "user_id": "uuid",
+  "display_name": "민지",
+  "created_at": "2026-07-29T00:00:00Z"
+}
+```
+
+Field rules:
+
+- `display_name`: string, required, 1-80 characters after trimming whitespace; blank values are rejected
+
 ### Create Group
 
 - Method and path: `POST /groups`
 - Sync or async: Sync
 - Idempotency: Not required for MVP
-- Resource owner: Authenticated user creating the group
+- Resource owner: Header-identified MVP user creating the group
 - Success status: `201 Created`
-- Error codes: `VALIDATION_ERROR`, `INTERNAL_ERROR`
+- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `X-UFC-User-Id`
 
 Request:
 
@@ -132,17 +176,68 @@ Response:
   "group_id": "uuid",
   "name": "여행 모임",
   "relationship_type": "FRIENDS",
-  "member_count": 1,
-  "created_at": "2026-07-29T00:00:00Z"
+  "status": "DRAFT",
+  "member_count": 0,
+  "can_analyze": false,
+  "created_at": "2026-07-29T00:00:00Z",
+  "members": []
 }
 ```
 
 Field rules:
 
-- `name`: string, required, 1-80 characters
+- `name`: string, required, 1-80 characters after trimming whitespace; blank values are rejected
 - `relationship_type`: enum, required, one of `COUPLE`, `FRIENDS`, `FAMILY`, `OTHER`
-- `member_count`: integer, required, range 1-4
+- `member_count`: integer, required, range 0-4
 - `created_at`: ISO 8601 datetime, required
+- `status`: enum, required, one of `DRAFT`, `READY_FOR_ANALYSIS`
+- `can_analyze`: boolean, required; true when the group has 2-4 members and every member has MBTI
+- Analysis execution status is not stored on `Group`; later analysis phases must use a separate analysis run status.
+
+### List Groups
+
+- Method and path: `GET /groups`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: Header-identified MVP user
+- Success status: `200 OK`
+- Error codes: `VALIDATION_ERROR`, `INTERNAL_ERROR`
+- Required headers: `X-UFC-User-Id`
+
+Response: array of Create Group response objects.
+
+### Get Group
+
+- Method and path: `GET /groups/{groupId}`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: Group owner
+- Success status: `200 OK`
+- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `X-UFC-User-Id`
+
+Response: Create Group response object, including `members`.
+
+### Update Group
+
+- Method and path: `PATCH /groups/{groupId}`
+- Sync or async: Sync
+- Idempotency: Not required for MVP
+- Resource owner: Group owner
+- Success status: `200 OK`
+- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `X-UFC-User-Id`
+
+Request fields are optional individually, but at least one field must be provided:
+
+```json
+{
+  "name": "가족 여행",
+  "relationship_type": "FAMILY"
+}
+```
+
+Response: Create Group response object.
 
 ### Add Group Member
 
@@ -152,6 +247,7 @@ Field rules:
 - Resource owner: Group owner or authorized group member
 - Success status: `201 Created`
 - Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
+- Required headers: `X-UFC-User-Id`
 
 Request:
 
@@ -181,6 +277,41 @@ Field rules:
 - `display_name`: string, required, 1-40 characters
 - `mbti`: enum, required, one of the 16 MBTI types
 - Group member count must not exceed 4.
+- Group status becomes `READY_FOR_ANALYSIS` when member count is 2-4 and every member has MBTI.
+- Group status returns to `DRAFT` when member count is below 2.
+- `display_name` is trimmed before validation and storage; blank values are rejected.
+- Duplicate `display_name` values are rejected within the same group after normalization.
+
+### Update Group Member
+
+- Method and path: `PATCH /groups/{groupId}/members/{memberId}`
+- Sync or async: Sync
+- Idempotency: Not required for MVP
+- Resource owner: Group owner
+- Success status: `200 OK`
+- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
+- Required headers: `X-UFC-User-Id`
+
+Request fields are optional individually, but at least one field must be provided:
+
+```json
+{
+  "display_name": "민지2",
+  "mbti": "ENTP"
+}
+```
+
+Response: Add Group Member response object.
+
+### Delete Group Member
+
+- Method and path: `DELETE /groups/{groupId}/members/{memberId}`
+- Sync or async: Sync
+- Idempotency: Not required for MVP
+- Resource owner: Group owner
+- Success status: `204 No Content`
+- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `X-UFC-User-Id`
 
 ### Upload Transactions
 

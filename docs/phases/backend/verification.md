@@ -27,8 +27,9 @@ python3 -c "import json; data=json.load(open('/private/tmp/ufc-openapi.json')); 
 
 ## Test Results
 
-- `pytest`: Passed, `11 passed, 1 warning`.
+- `pytest`: Passed, `23 passed, 1 warning`.
 - Foundation tests cover health, readiness, meta, OpenAPI paths, sanitized validation errors, trace id handling, DB failure cleanup, and unhandled exception responses.
+- BE Phase 2 tests cover user creation, group creation and lookup, member add/update/delete, MBTI validation, 4-member limit, owner access blocking, readiness status transitions, name normalization, empty PATCH rejection, duplicate member name conflict, PostgreSQL API flow, and PostgreSQL concurrent member-add protection.
 - `ruff check app tests`: Passed.
 - `alembic upgrade head`: Passed against PostgreSQL.
 - `docker compose config`: Passed.
@@ -49,10 +50,14 @@ python3 -c "import json; data=json.load(open('/private/tmp/ufc-openapi.json')); 
 - PostgreSQL container was available during Alembic, pytest, and readiness checks.
 - A Docker container name conflict occurred during parallel lint/test runs and was resolved with `docker compose -f compose.yaml -f compose.dev.yaml down`; no code or configuration change was required.
 - TestClient warning details are documented in `docs/troubleshooting/backend-testclient-httpx-warning.md`.
+- A Phase 2 migration enum duplication issue was found during PostgreSQL `alembic upgrade head` and fixed by letting table creation own enum creation.
 
 ## Known Limitations
 
-- Domain APIs are not implemented in BE Phase 1.
-- Authentication and authorization are not implemented in BE Phase 1.
+- Transaction APIs and analysis execution are not implemented in BE Phase 2.
+- Full login is not implemented in BE Phase 2; group APIs use temporary `X-UFC-User-Id` ownership checks.
+- `X-UFC-User-Id` is not an authentication boundary; a caller who knows another user's UUID can impersonate that user until a later authentication phase introduces a real principal.
+- Group readiness status is persisted even though it is currently derivable from members and MBTI completeness. Later phases should either keep it as a persisted read model with disciplined updates or remove persistence and derive it at response/query time.
+- Member create/update maps `IntegrityError` to duplicate display-name conflict because `uq_group_member_name` is currently the relevant member-write constraint. Future hardening should inspect the PostgreSQL constraint name before translating database errors.
 - The FastAPI TestClient/httpx deprecation warning remains non-blocking.
 - Docker production/development target split is deferred to a later hardening slice.

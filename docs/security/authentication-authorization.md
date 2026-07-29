@@ -4,6 +4,14 @@
 
 Authentication and authorization behavior is not implemented in Phase 0.
 
+## BE Phase 2 Position
+
+BE Phase 2 uses the local user plus temporary `X-UFC-User-Id` approach accepted in `docs/decisions/ADR-0003-phase-2-user-identity.md`.
+
+This supports group owner verification before full login is implemented. It must not be treated as production authentication.
+
+`X-UFC-User-Id` is not an authentication boundary because a caller can supply any known user id. Services using this Phase 2 implementation must remain limited to controlled MVP development or demo environments until real authentication replaces the temporary header principal.
+
 ## MVP Requirements To Resolve Before Implementation
 
 - User identity model
