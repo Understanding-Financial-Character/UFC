@@ -41,16 +41,16 @@ The Backend does not decide final feature availability, axis scores, or consumpt
 
 - `analysisId`: UUID string for the analysis run.
 - `groupId`: UUID string for the group.
-- `groupPurposeType`: group purpose code, such as `GENERAL`, `TRAVEL`, `LIVING`, `EVENT`, or `OTHER`.
+- `groupPurposeType`: canonical group purpose code: `DATE_EXPENSE`, `LIVING_EXPENSE`, `TRAVEL`, `REGULAR_MEETING`, `WEDDING_PREPARATION`, `HOBBY`, or `OTHER`.
 - `analysisPeriod.startedAt`: inclusive start datetime.
 - `analysisPeriod.endedAt`: inclusive end datetime.
-- `sourceType`: `MANUAL_UPLOAD`, `MOCK_GENERATED`, `SEED`, or `INTERNAL_TEST`.
+- `sourceType`: canonical source type: `CSV`, `MOCK`, `MANUAL`, or `INTERNAL_TEST`.
 - `isSynthetic`: `true` only for generated/mock/test datasets.
 - `members`: members participating in the analysis.
 - `transactions`: transactions in the requested analysis period.
 - `schemaVersion`: `analysis-input-v1`.
 
-`sourceType=MOCK_GENERATED` or `INTERNAL_TEST` requires `isSynthetic=true`. Synthetic runs must produce `PROVISIONAL` or lower-confidence result handling downstream.
+`sourceType=MOCK` or `INTERNAL_TEST` requires `isSynthetic=true`. Synthetic runs must produce `PROVISIONAL` or lower-confidence result handling downstream.
 
 ## Member Fields
 
@@ -74,7 +74,24 @@ The Backend does not decide final feature availability, axis scores, or consumpt
 
 `WITHDRAWAL` rows are analysis candidates. `DEPOSIT`, `REFUND`, `ADJUSTMENT`, and `TRANSFER` rows are passed so AN Phase 1 can apply a documented filtering policy, but behavior metrics must not treat them as ordinary spending.
 
-`behaviorGroup` values are owned by the analysis feature catalog. Allowed MVP groups include `PRACTICAL`, `EXPERIENCE`, `RELATIONSHIP`, `SAVING_EDUCATION`, `SOCIAL`, and `OTHER`. When omitted or `null`, Analysis Preprocessing derives it from `categoryCode`; when derivation is impossible, dependent features become unavailable rather than zero.
+`behaviorGroup` values use the canonical category behavior group enum: `PRACTICAL`, `EXPERIENCE`, `RELATIONSHIP`, `REGULAR`, `SAVINGS`, and `OTHER`. When omitted or `null`, Analysis Preprocessing derives it from `categoryCode`; when derivation is impossible, dependent features become unavailable rather than zero.
+
+If Analysis needs broader derived classifications, it must create separate derived fields instead of changing the source enum. Example derived fields:
+
+- `groupPurposeBehavior`: `SOCIAL`, `PRACTICAL`, `EXPERIENCE`, `PLANNED_EVENT`, or `OTHER`
+- `savingEducationCategory`: derived from category codes when a feature needs education and savings to be considered together
+
+MVP `groupPurposeBehavior` mapping:
+
+| groupPurposeType | groupPurposeBehavior |
+| --- | --- |
+| `DATE_EXPENSE` | `SOCIAL` |
+| `LIVING_EXPENSE` | `PRACTICAL` |
+| `TRAVEL` | `EXPERIENCE` |
+| `REGULAR_MEETING` | `SOCIAL` |
+| `WEDDING_PREPARATION` | `PLANNED_EVENT` |
+| `HOBBY` | `EXPERIENCE` |
+| `OTHER` | `OTHER` |
 
 Tri-state boolean meaning:
 
@@ -95,7 +112,7 @@ Tri-state boolean meaning:
     "startedAt": "2026-07-01T00:00:00",
     "endedAt": "2026-07-31T23:59:59"
   },
-  "sourceType": "MOCK_GENERATED",
+  "sourceType": "MOCK",
   "isSynthetic": true,
   "members": [
     {
@@ -116,7 +133,7 @@ Tri-state boolean meaning:
       "isSharedExpense": true,
       "isPlanned": null,
       "isRecurring": false,
-      "sourceType": "MOCK_GENERATED"
+      "sourceType": "MOCK"
     }
   ],
   "schemaVersion": "analysis-input-v1"

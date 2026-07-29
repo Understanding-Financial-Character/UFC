@@ -22,7 +22,7 @@ Unavailable features are excluded from rule scoring. They are not converted to z
 | metric_code | Description | Input fields | Calculation | Basis | Range | Minimum sample | NULL handling | Evidence format | Axes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `SHARED_EXPENSE_RATIO` | Shared spending share | `amount`, `is_shared_expense` | shared amount / marked amount | Amount | 0-1 | 1 marked transaction | Exclude NULL marker rows | Shared spending is X% of marked spending | EI, TF |
-| `WEEKEND_SOCIAL_SPENDING_RATIO` | Weekend social spending share | `occurred_at`, `behavior_group`, `amount` | weekend social behavior amount / total amount | Amount | 0-1 | 1 transaction | Required date/behavior group only | Weekend social spending is X% | EI |
+| `WEEKEND_SOCIAL_SPENDING_RATIO` | Weekend social spending share | `occurred_at`, `category_code`, `group_purpose_behavior`, `amount` | weekend social-derived spending amount / total amount | Amount | 0-1 | 1 transaction | Required date/category or derived group purpose only | Weekend social spending is X% | EI |
 | `NIGHT_SPENDING_RATIO` | Night spending share | `occurred_at`, `amount` | night amount / total amount | Amount | 0-1 | 1 transaction | Required datetime only | Night spending is X% | EI, JP |
 | `TRAVEL_EXPERIENCE_RATIO` | Travel and experience share | `group_purpose_type`, `behavior_group`, `amount` | travel-purpose experience amount / total amount | Amount | 0-1 | 1 transaction | Required group purpose and behavior group | Travel/experience is X% | EI, SN |
 | `PRACTICAL_SPENDING_RATIO` | Practical category spending share | `behavior_group`, `amount` | practical behavior amount / total amount | Amount | 0-1 | 1 transaction | Required behavior group only | Practical spending is X% | SN, TF |
@@ -31,7 +31,7 @@ Unavailable features are excluded from rule scoring. They are not converted to z
 | `NEW_MERCHANT_RATIO` | New merchant share | `merchant_key`, historical marker | new merchant count / merchant-countable transactions | Count | 0-1 | 2 merchant-key rows | Exclude NULL merchant rows | New merchants are X% | SN, JP |
 | `REPEAT_MERCHANT_RATIO` | Repeat merchant share | `merchant_key` | repeat merchant transaction count / merchant-key rows | Count | 0-1 | 2 merchant-key rows | Exclude NULL merchant rows | Repeat merchants are X% | JP |
 | `EXPERIENCE_SPENDING_RATIO` | Culture/experience spending share | `behavior_group`, `amount` | experience behavior amount / total amount | Amount | 0-1 | 1 transaction | Required behavior group only | Experience spending is X% | SN, TF |
-| `SAVING_EDUCATION_RATIO` | Saving and education share | `behavior_group`, `amount` | saving/education behavior amount / total amount | Amount | 0-1 | 1 transaction | Required behavior group only | Saving/education is X% | TF, JP |
+| `SAVING_EDUCATION_RATIO` | Saving and education share | `behavior_group`, `category_code`, `amount` | savings behavior plus education category amount / total amount | Amount | 0-1 | 1 transaction | Required behavior group or education category code | Saving/education is X% | TF, JP |
 | `RELATIONSHIP_SPENDING_RATIO` | Relationship spending share | `behavior_group`, `amount` | relationship behavior amount / total amount | Amount | 0-1 | 1 transaction | Required behavior group only | Relationship spending is X% | TF |
 | `SHARED_EXPERIENCE_RATIO` | Shared experience share | `behavior_group`, `is_shared_expense`, `amount` | shared experience amount / marked amount | Amount | 0-1 | 1 marked transaction | Exclude NULL marker rows | Shared experience is X% | EI, TF |
 | `GIFT_ANNIVERSARY_RATIO` | Gift and anniversary share | `category_code`, `behavior_group`, `amount` | gift/anniversary amount / total amount | Amount | 0-1 | 1 transaction | Required category code or behavior group | Gift/anniversary is X% | TF |
@@ -46,5 +46,6 @@ The feature engine consumes preprocessed spending rows. AN Phase 1 is responsibl
 
 - filtering or separately classifying `transaction_type` values such as `DEPOSIT`, `REFUND`, `ADJUSTMENT`, and `TRANSFER`
 - deriving `behavior_group` from `category_code` when the backend adapter did not provide it
+- deriving broader analysis-only fields such as `group_purpose_behavior` without replacing canonical source enums
 - carrying `group_purpose_type`, `analysis_period`, `source_type`, and `is_synthetic` into data-quality and uncertainty calculations
 - preserving `transaction_id` and nullable `member_id` for evidence traceability without exposing internal user ids to Qwen3

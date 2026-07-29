@@ -5,6 +5,7 @@ COMPOSE_AI := docker compose -f compose.yaml -f compose.dev.yaml --profile ai
 BACKEND_HEALTH := http://localhost:$${BACKEND_PORT:-8000}/health
 BACKEND_READY := http://localhost:$${BACKEND_PORT:-8000}/ready
 FRONTEND_URL := http://localhost:$${FRONTEND_PORT:-5173}
+OLLAMA_URL := http://localhost:$${OLLAMA_PORT:-11434}
 LLM_MODEL ?= qwen3:4b
 
 .PHONY: help init dev up down restart build ps logs logs-backend logs-frontend migrate migration-check test lint verify reset clean doctor ai-up ai-pull ai-health ai-setup ai-smoke dev-ai verify-ai wait-db wait-backend wait-frontend
@@ -140,10 +141,10 @@ ai-health:
 ai-setup: ai-up ai-pull ai-health
 
 ai-smoke: ai-setup
-	@curl -fsS http://localhost:11434/api/generate \
+	@response="$$(curl -fsS "$(OLLAMA_URL)/api/generate" \
 		-H "Content-Type: application/json" \
-		-d '{"model":"$(LLM_MODEL)","prompt":"Return only JSON: {\"ok\": true}","stream":false}' \
-		>/dev/null
+		-d '{"model":"$(LLM_MODEL)","prompt":"Return only JSON: {\"ok\": true}","stream":false}')"; \
+	python3 -c 'import json, sys; data=json.load(sys.stdin); assert data.get("response"), "missing Ollama response text"' <<< "$$response"
 	@echo "AI smoke ok: $(LLM_MODEL)"
 
 dev-ai: dev ai-setup

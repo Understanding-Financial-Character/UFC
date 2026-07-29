@@ -25,6 +25,7 @@ AN Phase 1 owns preprocessing decisions:
 
 - `DEPOSIT`, `REFUND`, `ADJUSTMENT`, and `TRANSFER` rows are not treated as ordinary spending.
 - `categoryCode -> behaviorGroup` mapping is versioned in the analysis layer.
+- Source enum values are preserved from DB contracts. Broader analysis-only classifications, such as `groupPurposeBehavior`, are derived fields.
 - Unknown behavior groups make dependent features unavailable instead of zero.
 - Synthetic/mock runs are carried into uncertainty and result-status policy.
 
