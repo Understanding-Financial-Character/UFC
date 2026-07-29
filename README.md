@@ -20,6 +20,10 @@ UFC(Understand Financial Character)는 개인 MBTI와 모임통장 소비 패턴
 ## 문서
 
 - [아키텍처](docs/architecture/overview.md)
+- [API 계약](docs/contracts/api-contracts.md)
+- [개발 Phase](docs/phases/README.md)
+- [보안 기준](docs/security/data-classification.md)
+- [용어집](docs/development/glossary.md)
 - [개발 가이드](docs/development/setup.md)
 - [PRD 요약](docs/evidence/prd-summary.md)
 - [트러블슈팅](docs/troubleshooting/README.md)
