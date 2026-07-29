@@ -28,12 +28,26 @@ Implement backend APIs and persistence for MVP workflows after contracts are fin
 - Analysis orchestration endpoints
 - Spending MBTI result retrieval
 
+### BE Phase 2 - User, Group, and Member Domain
+
+- Basic local user signup before full login
+- Temporary user identity through `X-UFC-User-Id`
+- Group create, list, get, and patch APIs
+- Group owner verification
+- Group member add, patch, and delete APIs
+- Member MBTI validation against the 16 valid MBTI types
+- 2-4 member readiness rule
+- Group readiness status and `can_analyze` calculation without depending on analysis result schemas
+
 ## Excluded Scope
 
 - Real bank account connection
 - Transfers and automatic payments
 - Credit score analysis
 - Financial product recommendation
+- Full login, password, session, OAuth, or JWT implementation for BE Phase 2
+- Transaction upload and analysis execution for BE Phase 2
+- Analysis run status on `Group`; later phases must model analysis execution separately
 
 ## Modules Expected To Change
 
