@@ -5,12 +5,13 @@ COMPOSE_AI := docker compose -f compose.yaml -f compose.dev.yaml --profile ai
 BACKEND_HEALTH := http://localhost:$${BACKEND_PORT:-8000}/health
 BACKEND_READY := http://localhost:$${BACKEND_PORT:-8000}/ready
 FRONTEND_URL := http://localhost:$${FRONTEND_PORT:-5173}
+LLM_MODEL ?= qwen3:4b
 
-.PHONY: help init dev up down restart build ps logs logs-backend logs-frontend migrate migration-check test lint verify reset clean doctor ai-up ai-pull ai-health wait-db wait-backend wait-frontend
+.PHONY: help init dev up down restart build ps logs logs-backend logs-frontend migrate migration-check test lint verify reset clean doctor ai-up ai-pull ai-health ai-setup ai-smoke dev-ai verify-ai wait-db wait-backend wait-frontend
 
 help:
 	@printf "UFC development commands\n\n"
-	@printf "  make init             Create .env if missing and generate local secrets\n"
+	@printf "  make init             Create .env if missing and generate missing local secrets\n"
 	@printf "  make dev              Initialize, build, start, migrate, and health-check local services\n"
 	@printf "  make up               Start db/backend/frontend\n"
 	@printf "  make down             Stop local services\n"
@@ -29,8 +30,12 @@ help:
 	@printf "  make clean            Remove project-local build/cache artifacts only\n"
 	@printf "  make doctor           Check local tool availability\n"
 	@printf "  make ai-up            Start optional Ollama profile\n"
-	@printf "  make ai-pull          Pull qwen3:4b into optional Ollama service\n"
-	@printf "  make ai-health        Check optional Ollama service\n"
+	@printf "  make ai-pull          Pull $(LLM_MODEL) into optional Ollama service when missing\n"
+	@printf "  make ai-health        Check optional Ollama service and model availability\n"
+	@printf "  make ai-setup         Start Ollama, ensure model exists, and run health check\n"
+	@printf "  make ai-smoke         Run a minimal Ollama generation request\n"
+	@printf "  make dev-ai           Run default dev setup plus optional AI runtime setup\n"
+	@printf "  make verify-ai        Verify optional AI runtime setup and smoke generation\n"
 
 init:
 	@python3 scripts/bootstrap_env.py
@@ -120,11 +125,30 @@ clean:
 ai-up:
 	@$(COMPOSE_AI) up -d ollama
 
-ai-pull:
-	@$(COMPOSE_AI) exec -T ollama ollama pull qwen3:4b
+ai-pull: ai-up
+	@if $(COMPOSE_AI) exec -T ollama ollama list | grep -q "^$(LLM_MODEL)[[:space:]]"; then \
+		echo "$(LLM_MODEL) already installed"; \
+	else \
+		$(COMPOSE_AI) exec -T ollama ollama pull $(LLM_MODEL); \
+	fi
 
 ai-health:
-	@$(COMPOSE_AI) exec -T ollama ollama list
+	@$(COMPOSE_AI) exec -T ollama ollama list | grep -q "^$(LLM_MODEL)[[:space:]]" || \
+		{ echo "$(LLM_MODEL) is not installed"; exit 1; }
+	@echo "AI runtime ready: $(LLM_MODEL)"
+
+ai-setup: ai-up ai-pull ai-health
+
+ai-smoke: ai-setup
+	@curl -fsS http://localhost:11434/api/generate \
+		-H "Content-Type: application/json" \
+		-d '{"model":"$(LLM_MODEL)","prompt":"Return only JSON: {\"ok\": true}","stream":false}' \
+		>/dev/null
+	@echo "AI smoke ok: $(LLM_MODEL)"
+
+dev-ai: dev ai-setup
+
+verify-ai: ai-smoke
 
 wait-db:
 	@echo "waiting for PostgreSQL"

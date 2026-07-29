@@ -8,6 +8,9 @@ Verified branch commits:
 - `a8cb8b7` docs: rebaseline UFC development phases
 - `9e346df` docs: align data analysis and rule engine contracts
 - `7580445` chore: add make based local development workflow
+- `d89e260` docs: record collaboration verification results
+- `3d1243a` chore: add ci verification workflow
+- Current PR head: See PR #7 until merge.
 
 ## Verified At
 2026-07-30 02:21:17 KST

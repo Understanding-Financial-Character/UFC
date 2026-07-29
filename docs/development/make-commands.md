@@ -3,7 +3,7 @@
 | Command | Purpose |
 | --- | --- |
 | `make help` | Show available commands. |
-| `make init` | Create `.env` if missing, generate local secrets, and prepare local directories. |
+| `make init` | Create `.env` if missing and generate missing local secrets. |
 | `make dev` | Full local startup: init, config, build, up, migrate, health checks, status. |
 | `make up` | Start `db`, `backend`, and `frontend`. |
 | `make down` | Stop local services. |
@@ -22,7 +22,11 @@
 | `make clean` | Remove stopped Compose containers and project-local build/cache artifacts. |
 | `make doctor` | Check local tool availability. |
 | `make ai-up` | Start optional Ollama profile. |
-| `make ai-pull` | Pull `qwen3:4b` into Ollama. |
-| `make ai-health` | Check optional Ollama service. |
+| `make ai-pull` | Start Ollama if needed and pull `qwen3:4b` only when missing. |
+| `make ai-health` | Check optional Ollama service and required model availability. |
+| `make ai-setup` | Start Ollama, ensure `qwen3:4b` exists, and run health checks. |
+| `make ai-smoke` | Run a minimal Ollama generation request. |
+| `make dev-ai` | Run default `make dev` plus optional AI runtime setup. |
+| `make verify-ai` | Verify optional AI runtime setup and smoke generation. |
 
 `make reset` requires `CONFIRM=1` because it deletes the local PostgreSQL volume.

@@ -62,7 +62,7 @@ Status transition rules:
 | Phase | Status | PR |
 | --- | --- | --- |
 | Phase 0 Foundation | COMPLETED | #2 |
-| Collaboration Rebaseline Foundation | IN_PROGRESS | Pending |
+| Collaboration Rebaseline Foundation | VERIFYING | #7 |
 
 ### Backend
 

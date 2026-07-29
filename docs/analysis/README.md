@@ -15,6 +15,16 @@ It does not call Qwen3, shape final UI copy, persist database rows directly, or 
 5. Consumption MBTI Rule Engine
 6. Result DTO for backend persistence and AI report generation
 
+## Input Ownership
+
+The backend provides `analysis-input-v1` with source-level transaction facts. The analysis layer owns:
+
+- transaction-type filtering
+- category-to-behavior-group mapping
+- synthetic data and source-type quality handling
+- analysis-period sufficiency checks
+- feature availability decisions
+
 ## Entry Documents
 
 - [Feature Catalog](feature-catalog.md)

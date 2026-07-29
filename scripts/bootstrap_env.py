@@ -17,16 +17,9 @@ SECRET_KEYS = {
     "FIELD_KEY_VERSION": lambda: "local-v1",
 }
 
-REQUIRED_DIRECTORIES = [
-    ROOT / "mock-data" / "scenarios",
-    ROOT / "mock-data" / "generated",
-]
-
-
 def main() -> None:
     ensure_docker_available()
     ensure_env_file()
-    ensure_required_directories()
     print("init ok")
 
 
@@ -86,15 +79,6 @@ def rewrite_env(values: dict[str, str]) -> None:
         key, _value = stripped.split("=", maxsplit=1)
         output_lines.append(f"{key}={values.get(key, '')}")
     ENV_FILE.write_text("\n".join(output_lines) + "\n", encoding="utf-8")
-
-
-def ensure_required_directories() -> None:
-    for directory in REQUIRED_DIRECTORIES:
-        directory.mkdir(parents=True, exist_ok=True)
-        keep = directory / ".gitkeep"
-        if not keep.exists():
-            keep.write_text("", encoding="utf-8")
-
 
 if __name__ == "__main__":
     main()

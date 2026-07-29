@@ -1,7 +1,7 @@
 # Collaboration Rebaseline Foundation Progress
 
 ## Current Status
-VERIFIED
+VERIFYING
 
 ## Implemented
 - Branch created from latest `main`.
@@ -13,7 +13,9 @@ VERIFIED
 - Final local verification passed through `make verify`.
 
 ## Remaining
-- Commit and push.
+- PR #7 review feedback 반영
+- PR merge
+- Merge commit and completed date 기록
 
 ## Contract Changes
 Documentation aligns target analysis/data contracts only. No API runtime contract is changed.
@@ -22,12 +24,15 @@ Documentation aligns target analysis/data contracts only. No API runtime contrac
 None.
 
 ## Linked PR
-Pending.
+#7
 
 ## Commits
 - `a8cb8b7` docs: rebaseline UFC development phases
 - `9e346df` docs: align data analysis and rule engine contracts
 - `7580445` chore: add make based local development workflow
+- `d89e260` docs: record collaboration verification results
+- `3d1243a` chore: add ci verification workflow
+- Current PR head: See PR #7
 
 ## Blockers
 None.

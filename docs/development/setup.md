@@ -27,7 +27,7 @@ make dev
 
 ## Environment File
 
-`make init` creates `.env` from `.env.example` only when `.env` is missing. It generates empty local secrets without overwriting existing values:
+`make init` creates `.env` from `.env.example` only when `.env` is missing. It generates missing local secrets without overwriting existing values:
 
 - `AUTH_TOKEN_SECRET`
 - `FIELD_ENCRYPTION_KEY`
@@ -49,10 +49,20 @@ This checks Compose config, migrations, backend tests, backend lint, frontend li
 Ollama is not part of the default local development path before the AI runtime phase.
 
 ```bash
+make ai-setup
+```
+
+Additional AI commands:
+
+```bash
 make ai-up
 make ai-pull
 make ai-health
+make ai-smoke
+make verify-ai
 ```
+
+The Ollama image is pinned through `OLLAMA_IMAGE` instead of using `latest`. `qwen3:4b` is pulled only when it is missing.
 
 ## Nginx
 

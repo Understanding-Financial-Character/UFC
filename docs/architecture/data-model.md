@@ -49,6 +49,8 @@ Documentation may use `email_lookup_hash` as the conceptual lookup field name, b
 
 Owns group metadata and owner user id. `Group.status` currently stores readiness only: `DRAFT` or `READY_FOR_ANALYSIS`. Analysis execution status belongs to `analysis_runs`, not `groups`.
 
+Target analysis-facing group metadata includes `purpose_type`, such as `GENERAL`, `TRAVEL`, `LIVING`, `EVENT`, or `OTHER`. This value is copied into `analysis-input-v1` as `groupPurposeType`.
+
 ### group_members
 
 Owns member display labels inside a group. The current implementation stores personal MBTI in `member_personalities`; future data-model cleanup may fold or retain this supporting table by explicit migration decision only.
@@ -57,12 +59,19 @@ Owns member display labels inside a group. The current implementation stores per
 
 Target owner for category code, display label, and classification metadata used by transaction normalization and analysis.
 
+Category-to-behavior-group mapping is consumed by Analysis Preprocessing. If the mapping is stored in the database, it must be versioned or exported with a versioned analysis configuration so repeated analysis remains deterministic.
+
 Status: not implemented.
 
 ### transactions
 
 Target owner for normalized transaction records. Boolean behavior signals are tri-state:
 
+- `transaction_type`
+- `category_code`
+- `merchant_key`
+- `source_type`
+- `is_synthetic`
 - `is_shared_expense BOOLEAN NULL`
 - `is_planned BOOLEAN NULL`
 - `is_recurring BOOLEAN NULL`
@@ -75,6 +84,10 @@ Meaning:
 
 `NULL` must not be interpreted as `FALSE`.
 
+`transaction_type` separates ordinary spending from `DEPOSIT`, `REFUND`, `ADJUSTMENT`, and `TRANSFER`. Non-spending rows may be retained for auditability and data quality, but they are not ordinary spending denominators.
+
+`source_type` and `is_synthetic` are required for mock scenario and uncertainty handling. Generated/mock transactions must be distinguishable from real user-provided data before analysis starts.
+
 Status: not implemented.
 
 ### analysis_runs
@@ -84,6 +97,10 @@ Owns analysis execution lifecycle and result quality:
 - `status`: execution status
 - `result_status`: output quality status
 - `provisional_reasons`: structured reason list
+- `analysis_period_started_at`: inclusive start of observation window
+- `analysis_period_ended_at`: inclusive end of observation window
+- `source_type`: run-level source marker
+- `is_synthetic`: run-level synthetic marker
 
 `result_status` values:
 

@@ -73,7 +73,7 @@ services:
       start_period: 10s
 
   ollama:
-    image: ollama/ollama:latest
+    image: ${OLLAMA_IMAGE:-ollama/ollama:0.32.3}
     profiles:
       - ai
     ports:

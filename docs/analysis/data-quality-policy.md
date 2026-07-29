@@ -8,7 +8,11 @@ Preprocessing must make analysis input explicit and auditable before behavior me
 
 - Transaction amount is positive for spending records.
 - Transaction timestamp is present and parseable.
-- Category is present after normalization.
+- `transaction_type` is present and supported by preprocessing policy.
+- `category_code` is present for spending rows that need category or behavior-group features.
+- `behavior_group` is present or derivable from versioned `category_code` mapping before behavior-group metrics run.
+- `analysis_period` is present and includes the requested observation window.
+- `source_type` and `is_synthetic` are present and internally consistent.
 - Boolean behavior signals keep tri-state semantics.
 - Duplicate imported rows are handled by the owning transaction input phase.
 - Synthetic data is marked before analysis.
@@ -26,3 +30,9 @@ For `is_shared_expense`, `is_planned`, and `is_recurring`:
 ## Data Sufficiency
 
 Sparse, short-period, missing-category, missing-merchant, or synthetic data may still produce partial evidence. It must be reflected in `result_status`, `provisional_reasons`, coverage, and limitations.
+
+## Transaction Type Policy
+
+`WITHDRAWAL` rows are the default candidates for spending behavior metrics.
+
+`DEPOSIT`, `REFUND`, `ADJUSTMENT`, and `TRANSFER` rows must be retained through preprocessing long enough to support auditability and quality decisions, but they are excluded from ordinary spending denominators unless a later metric explicitly opts into them.

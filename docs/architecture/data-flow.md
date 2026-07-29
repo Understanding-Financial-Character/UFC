@@ -2,20 +2,31 @@
 
 ## End-to-End Flow
 
-User -> React -> FastAPI -> PostgreSQL source data lookup -> Analysis Input Adapter -> Preprocessing / Data Quality -> Behavior Metric Engine -> Consumption MBTI Rule Engine -> Result storage -> Qwen3 4B Report Generator -> AI Report storage -> React Result View
+User -> React -> FastAPI -> PostgreSQL source data lookup -> Analysis Input Adapter -> Analysis Preprocessing / Data Quality -> Behavior Metric Engine -> Consumption MBTI Rule Engine -> Result storage -> Qwen3 4B Report Generator -> AI Report storage -> React Result View
 
 ## Data Shape Flow
 
-Raw Transaction -> Normalized Transaction -> Behavior Metrics -> Axis Scores -> Consumption MBTI -> Grounded AI Report
+Raw Transaction -> AnalysisInput Transaction -> Preprocessed Spending Transaction -> Behavior Metrics -> Axis Scores -> Consumption MBTI -> Grounded AI Report
 
 ## Responsibility Split
 
-- FastAPI Backend stores transactions and serves APIs.
-- Python Analysis Layer preprocesses normalized transactions and calculates behavior metrics.
+- FastAPI Backend stores transactions, validates ownership, and builds `analysis-input-v1` without sensitive identity fields.
+- Python Analysis Layer preprocesses analysis input transactions, filters non-spending transaction types, derives behavior groups, scores data quality, and calculates behavior metrics.
 - Versioned Rule Engine determines E/I, S/N, T/F, and J/P.
 - Ollama-backed Qwen3 4B turns calculated evidence into user-friendly text.
 
 Consumption MBTI is never decided by the LLM.
+
+## Analysis Input Boundary
+
+The backend passes source-level analysis fields such as `groupPurposeType`, `analysisPeriod`, `sourceType`, `isSynthetic`, `transactionId`, nullable `memberId`, `transactionType`, and `categoryCode`.
+
+AN Phase 1 owns preprocessing decisions:
+
+- `DEPOSIT`, `REFUND`, `ADJUSTMENT`, and `TRANSFER` rows are not treated as ordinary spending.
+- `categoryCode -> behaviorGroup` mapping is versioned in the analysis layer.
+- Unknown behavior groups make dependent features unavailable instead of zero.
+- Synthetic/mock runs are carried into uncertainty and result-status policy.
 
 ## Qwen3 4B Allowed Input
 
