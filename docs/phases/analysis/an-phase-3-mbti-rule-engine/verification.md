@@ -1,7 +1,7 @@
 # AN Phase 3 - Consumption MBTI Rule Engine Verification
 
 ## Verified Commit
-Pending source-provenance fix commit.
+`8d12e68`
 ## Verified At
 2026-07-30
 ## Environment

@@ -25,7 +25,7 @@ None.
 - Initial implementation: `e88bbb1`
 - Review fixes verified: `09f5e53`
 - Verification documentation: `a68bc5a`
-- Source provenance review fix: Pending commit.
+- Source provenance review fix: `8d12e68`
 ## Blockers
 None.
 ## Handover Notes
