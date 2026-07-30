@@ -28,7 +28,7 @@ Not assigned.
 ## Commits
 - `6e618d6` feat: add grounded qwen report validation
 - `6db1d21` fix: harden grounded report validation
-- Pending evidence value type hardening commit.
+- `32099bc` fix: add evidence value types for grounded reports
 ## Blockers
 None for standalone AI service. Orchestration/persistence integration remains later work.
 ## Handover Notes

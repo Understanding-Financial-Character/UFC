@@ -5,7 +5,7 @@
 
 `6db1d21` fix: harden grounded report validation
 
-Evidence value type hardening changes are verified locally before commit.
+`32099bc` fix: add evidence value types for grounded reports
 ## Verified At
 2026-07-30 11:31:37 KST
 ## Environment
