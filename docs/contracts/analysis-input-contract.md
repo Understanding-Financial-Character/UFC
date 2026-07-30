@@ -6,7 +6,7 @@ Defines the structured input that backend orchestration passes into the Python a
 
 ## Status
 
-Target contract. Concrete implementation is owned by AN Phase 1 and AN Phase 2. PR #6 is tracked separately and is not merged into `main`.
+Implemented by AN Phase 1 for DB-independent preprocessing input. Later analysis phases may extend derived evidence contracts without passing SQLAlchemy entities into analysis functions.
 
 ## Schema Version
 
@@ -32,8 +32,8 @@ UFC uses the following ownership model:
 
 1. FastAPI Backend reads owned source data, validates access, excludes sensitive identity fields, and builds `AnalysisInput`.
 2. Analysis Preprocessing filters or classifies transaction rows by `transactionType`, `categoryCode`, source markers, and quality policy.
-3. Analysis Preprocessing derives `behaviorGroup` from `categoryCode` using a versioned category-behavior mapping when `behaviorGroup` is not provided.
-4. Behavior Metric Engine consumes the preprocessed transaction set.
+3. Analysis Preprocessing normalizes timestamps, category codes, and merchant keys, then computes deterministic data quality output.
+4. Behavior Metric Engine consumes the preprocessed transaction set in later phases.
 
 The Backend does not decide final feature availability, axis scores, or consumption MBTI. It also does not pass user email, username, nickname, tokens, ciphertext, secrets, or raw transaction memo text into this contract.
 
@@ -42,15 +42,15 @@ The Backend does not decide final feature availability, axis scores, or consumpt
 - `analysisId`: UUID string for the analysis run.
 - `groupId`: UUID string for the group.
 - `groupPurposeType`: canonical group purpose code: `DATE_EXPENSE`, `LIVING_EXPENSE`, `TRAVEL`, `REGULAR_MEETING`, `WEDDING_PREPARATION`, `HOBBY`, or `OTHER`.
-- `analysisPeriod.startedAt`: inclusive start datetime.
-- `analysisPeriod.endedAt`: inclusive end datetime.
+- `analysisPeriod.startedAt`: inclusive start datetime with timezone.
+- `analysisPeriod.endedAt`: inclusive end datetime with timezone.
 - `sourceType`: canonical source type: `CSV`, `MOCK`, `MANUAL`, or `INTERNAL_TEST`.
 - `isSynthetic`: `true` only for generated/mock/test datasets.
 - `members`: members participating in the analysis.
 - `transactions`: transactions in the requested analysis period.
 - `schemaVersion`: `analysis-input-v1`.
 
-`sourceType=MOCK` or `INTERNAL_TEST` requires `isSynthetic=true`. Synthetic runs must produce `PROVISIONAL` or lower-confidence result handling downstream.
+`sourceType=MOCK` or `INTERNAL_TEST` requires `isSynthetic=true`. Synthetic runs must produce `PROVISIONAL` or lower-confidence result handling downstream unless blocking data sufficiency reasons make the run `INSUFFICIENT_DATA`.
 
 ## Member Fields
 
@@ -61,7 +61,7 @@ The Backend does not decide final feature availability, axis scores, or consumpt
 
 - `transactionId`: source transaction id.
 - `memberId`: nullable member id when a transaction can be attributed to one group member.
-- `occurredAt`: transaction datetime
+- `occurredAt`: transaction datetime with timezone within the inclusive `analysisPeriod`
 - `amount`: positive absolute amount
 - `transactionType`: `WITHDRAWAL`, `DEPOSIT`, `REFUND`, `ADJUSTMENT`, or `TRANSFER`
 - `categoryCode`: normalized category code
@@ -70,11 +70,11 @@ The Backend does not decide final feature availability, axis scores, or consumpt
 - `isSharedExpense`: nullable boolean
 - `isPlanned`: nullable boolean
 - `isRecurring`: nullable boolean
-- `sourceType`: transaction-level source marker, defaults to the top-level `sourceType` when omitted
+- `sourceType`: transaction-level source marker, defaults to the top-level `sourceType` when omitted and must match the top-level value when present
 
 `WITHDRAWAL` rows are analysis candidates. `DEPOSIT`, `REFUND`, `ADJUSTMENT`, and `TRANSFER` rows are passed so AN Phase 1 can apply a documented filtering policy, but behavior metrics must not treat them as ordinary spending.
 
-`behaviorGroup` values use the canonical category behavior group enum: `PRACTICAL`, `EXPERIENCE`, `RELATIONSHIP`, `REGULAR`, `SAVINGS`, and `OTHER`. When omitted or `null`, Analysis Preprocessing derives it from `categoryCode`; when derivation is impossible, dependent features become unavailable rather than zero.
+`behaviorGroup` values use the canonical category behavior group enum: `PRACTICAL`, `EXPERIENCE`, `RELATIONSHIP`, `REGULAR`, `SAVINGS`, and `OTHER`. When omitted or `null`, AN Phase 1 preserves the missing value. Later metrics that depend on behavior-group evidence must treat those rows as unavailable rather than zero.
 
 If Analysis needs broader derived classifications, it must create separate derived fields instead of changing the source enum. Example derived fields:
 
@@ -109,8 +109,8 @@ Tri-state boolean meaning:
   "groupId": "uuid",
   "groupPurposeType": "TRAVEL",
   "analysisPeriod": {
-    "startedAt": "2026-07-01T00:00:00",
-    "endedAt": "2026-07-31T23:59:59"
+    "startedAt": "2026-07-01T00:00:00+09:00",
+    "endedAt": "2026-07-31T23:59:59+09:00"
   },
   "sourceType": "MOCK",
   "isSynthetic": true,
@@ -124,7 +124,7 @@ Tri-state boolean meaning:
     {
       "transactionId": "uuid",
       "memberId": "uuid",
-      "occurredAt": "2026-07-01T12:30:00",
+      "occurredAt": "2026-07-01T12:30:00+09:00",
       "amount": 32000,
       "transactionType": "WITHDRAWAL",
       "categoryCode": "FOOD",
@@ -148,4 +148,23 @@ Tri-state boolean meaning:
 - Uploaded data must be validated before analysis.
 - Synthetic data must be marked before result generation.
 - Analysis period and source type must be present before data-quality scoring.
-- Category-to-behavior mapping must be versioned by the analysis layer.
+- Category-to-behavior mapping must be versioned by the analysis layer before any later metric derives behavior evidence.
+
+## AN Phase 1 Output
+
+`preprocess_analysis_input()` returns:
+
+- `normalized_transactions`: non-excluded `WITHDRAWAL` rows sorted by `occurred_at` and `transaction_id`
+- `included_count`
+- `excluded_count`
+- `requested_period_days`
+- `observed_period_days`
+- `data_quality_score`
+- `analysis_eligible`
+- `result_status_candidate`: `STANDARD`, `PROVISIONAL`, or `INSUFFICIENT_DATA`
+- `provisional_reasons`
+- `limitations`
+
+`DEPOSIT`, `REFUND`, `TRANSFER`, `ADJUSTMENT`, and source-excluded rows are returned as excluded audit entries and are not included in ordinary spending denominators.
+
+`INSUFFICIENT_DATA` means analysis must not invoke rule-engine or LLM judgment. It is used for no analyzable withdrawals, fewer than 10 normalized withdrawals, or fewer than 14 observed transaction days. `PROVISIONAL` means analysis is eligible but limited by coverage or synthetic data.
