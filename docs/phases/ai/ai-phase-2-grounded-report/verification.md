@@ -3,7 +3,7 @@
 ## Verified Commit
 `6e618d6` feat: add grounded qwen report validation
 
-Review hardening changes are verified locally before commit.
+`6db1d21` fix: harden grounded report validation
 ## Verified At
 2026-07-30 11:21:25 KST
 ## Environment

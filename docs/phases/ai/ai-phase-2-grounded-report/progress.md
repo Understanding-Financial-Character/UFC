@@ -25,7 +25,7 @@ None.
 Not assigned.
 ## Commits
 - `6e618d6` feat: add grounded qwen report validation
-- Pending review hardening commit.
+- `6db1d21` fix: harden grounded report validation
 ## Blockers
 None for standalone AI service. Orchestration/persistence integration remains later work.
 ## Handover Notes
