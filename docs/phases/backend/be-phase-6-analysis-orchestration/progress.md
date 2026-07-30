@@ -26,7 +26,7 @@ Frontend polling integration remains a later frontend phase.
 ## Linked PR
 Not assigned.
 ## Commits
-Pending final commit.
+`d25b552`
 ## Blockers
 None.
 ## Handover Notes
