@@ -856,6 +856,222 @@ p {
   color: #edf3ff;
 }
 
+.settings-page {
+  background: #f9f9fc;
+  color: #1a1c1e;
+  min-height: 100vh;
+  padding: 88px 18px 36px;
+}
+
+.settings-topbar {
+  align-items: center;
+  backdrop-filter: blur(16px);
+  background: rgb(249 249 252 / 86%);
+  display: flex;
+  height: 64px;
+  justify-content: space-between;
+  left: 0;
+  padding: 0 28px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 20;
+}
+
+.settings-topbar div {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+}
+
+.settings-topbar h1 {
+  color: #005996;
+  font-size: 2rem;
+  line-height: 1;
+  margin: 0;
+}
+
+.settings-topbar button {
+  background: transparent;
+  color: #005996;
+  font-size: 2rem;
+  min-height: 44px;
+  padding: 0;
+  width: 44px;
+}
+
+.settings-topbar > button {
+  color: #404751;
+}
+
+.settings-profile {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgb(192 199 211 / 38%);
+  border-radius: 10px;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 4%);
+  display: flex;
+  gap: 18px;
+  margin: 20px auto 42px;
+  max-width: 720px;
+  padding: 20px 22px;
+}
+
+.settings-avatar {
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgb(8 114 189 / 18%), transparent 52%),
+    #263241;
+  border: 3px solid #0872bd;
+  border-radius: 16px;
+  color: #ffffff;
+  display: flex;
+  font-size: 2rem;
+  font-weight: 900;
+  height: 82px;
+  justify-content: center;
+  position: relative;
+  width: 82px;
+}
+
+.settings-avatar i {
+  align-items: center;
+  background: #fec337;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  bottom: -5px;
+  color: #6f5100;
+  display: flex;
+  font-size: 0.75rem;
+  font-style: normal;
+  height: 27px;
+  justify-content: center;
+  position: absolute;
+  right: -7px;
+  width: 27px;
+}
+
+.settings-profile h2 {
+  font-size: 1.85rem;
+  line-height: 1.1;
+  margin: 0 0 8px;
+}
+
+.settings-profile p {
+  color: #404751;
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.settings-list {
+  display: grid;
+  gap: 12px;
+  margin: 0 auto;
+  max-width: 720px;
+}
+
+.settings-list hr {
+  background: rgb(192 199 211 / 34%);
+  border: 0;
+  height: 1px;
+  margin: 6px 30px;
+}
+
+.settings-item {
+  background: #ffffff;
+  border: 1px solid rgb(192 199 211 / 38%);
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 2%);
+  color: #1a1c1e;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 56px 1fr 24px;
+  justify-content: stretch;
+  min-height: 98px;
+  padding: 20px 22px;
+  text-align: left;
+  transition:
+    background 0.16s ease,
+    transform 0.16s ease;
+}
+
+.settings-item:hover {
+  background: #f3f3f6;
+}
+
+.settings-item:active {
+  transform: scale(0.99);
+}
+
+.settings-item-icon {
+  align-items: center;
+  background: #e8eef5;
+  border-radius: 6px;
+  color: #0872bd;
+  display: flex;
+  font-size: 1.55rem;
+  font-weight: 900;
+  height: 54px;
+  justify-content: center;
+  width: 54px;
+}
+
+.settings-item > span:nth-child(2) {
+  display: grid;
+  gap: 5px;
+}
+
+.settings-item strong {
+  color: #1a1c1e;
+  font-size: 1.12rem;
+}
+
+.settings-item small {
+  color: #7a5900;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.settings-item b {
+  color: #717882;
+  font-size: 2rem;
+  font-weight: 400;
+}
+
+.settings-footer {
+  display: grid;
+  gap: 24px;
+  margin: 64px auto 0;
+  max-width: 720px;
+  text-align: center;
+}
+
+.settings-footer button {
+  background: #c9171d;
+  border-radius: 8px;
+  box-shadow: 0 10px 20px rgb(201 23 29 / 18%);
+  color: #ffffff;
+  font-size: 1.2rem;
+  font-weight: 900;
+  gap: 12px;
+  height: 74px;
+  width: 100%;
+}
+
+.settings-footer p {
+  color: rgb(64 71 81 / 58%);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  margin: 0;
+}
+
+.settings-footer a {
+  color: #005996;
+  font-weight: 800;
+  text-decoration: none;
+}
+
 .topbar {
   align-items: center;
   display: flex;
@@ -1034,6 +1250,28 @@ p {
 
   .mobile-nav {
     display: flex;
+  }
+
+  .settings-page {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .settings-profile {
+    margin-bottom: 42px;
+  }
+
+  .settings-profile h2 {
+    font-size: 1.65rem;
+  }
+
+  .settings-profile p {
+    font-size: 0.98rem;
+    overflow-wrap: anywhere;
+  }
+
+  .settings-item {
+    min-height: 88px;
   }
 
   .topbar,

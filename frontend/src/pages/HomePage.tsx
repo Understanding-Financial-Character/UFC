@@ -51,7 +51,7 @@ export function HomePage({ variant = "user" }: HomePageProps) {
           <a href="#explore">탐색</a>
           <a href="#groups">모임</a>
           <a href="#insights">트렌드</a>
-          <a href="#profile">프로필</a>
+          <Link to={user ? "/settings" : "/login"}>프로필</Link>
         </nav>
         <div className="landing-session">
           {user ? (
@@ -241,7 +241,7 @@ function MobileNav() {
         모임
       </a>
       <a href="#insights">트렌드</a>
-      <a href="#profile">프로필</a>
+      <Link to="/settings">프로필</Link>
     </nav>
   );
 }
