@@ -18,7 +18,6 @@ from app.modules.groups.models import Group, GroupMember, GroupMemberStatus
 from app.modules.groups.service import get_owned_group
 from app.modules.transactions.models import (
     Category,
-    CategoryBehaviorGroup,
     Transaction,
     TransactionSourceType,
     TransactionType,
@@ -31,9 +30,8 @@ from app.modules.transactions.schemas import (
 )
 
 FIXTURE_ROOT = Path(__file__).resolve().parent / "fixtures"
-BACKEND_ROOT = Path(__file__).resolve().parents[3]
-CATEGORY_SEED_PATH = BACKEND_ROOT / "migrations" / "data" / "20260730_0004_categories.csv"
 MOCK_TRANSACTION_PATH = FIXTURE_ROOT / "transactions_mock_v2.csv"
+MAX_TRANSACTION_AMOUNT = Decimal("999999999999.99")
 MOCK_SCENARIOS = {
     "mock-v2": {
         "name": "Mock Transactions V2",
@@ -76,27 +74,6 @@ class ParsedTransactionRow:
     is_recurring: bool | None
     is_excluded: bool
     exclusion_reason: str | None
-
-
-def ensure_seed_categories(db: Session) -> None:
-    existing_ids = set(db.scalars(select(Category.id)).all())
-    with CATEGORY_SEED_PATH.open(encoding="utf-8-sig", newline="") as seed_file:
-        for row in csv.DictReader(seed_file):
-            if row["id"] in existing_ids:
-                continue
-            db.add(
-                Category(
-                    id=row["id"],
-                    code=row["code"].strip(),
-                    name=row["name"].strip(),
-                    behavior_group=CategoryBehaviorGroup(row["behavior_group"].strip()),
-                    display_order=int(row["display_order"]),
-                    is_active=parse_required_bool(row["is_active"]),
-                    created_at=parse_datetime(row["created_at"]),
-                    updated_at=parse_datetime(row["updated_at"]),
-                )
-            )
-    db.commit()
 
 
 def list_categories(db: Session) -> list[Category]:
@@ -347,10 +324,10 @@ def persist_import_rows(
         errors: list[RowValidationError] = []
         validate_category_id(db, row.category_id, errors)
         validate_active_member_id(db, group.id, row.member_id, errors)
-        if row.source_row_key is not None:
-            if row.source_row_key in existing_keys or row.source_row_key in batch_keys:
-                errors.append(duplicate_source_row_key_error())
-            batch_keys.add(row.source_row_key)
+        if row.source_row_key is not None and (
+            row.source_row_key in existing_keys or row.source_row_key in batch_keys
+        ):
+            errors.append(duplicate_source_row_key_error())
         if errors:
             results.append(
                 TransactionImportRowResult(
@@ -361,6 +338,9 @@ def persist_import_rows(
                 )
             )
             continue
+
+        if row.source_row_key is not None:
+            batch_keys.add(row.source_row_key)
 
         try:
             with db.begin_nested():
@@ -525,15 +505,6 @@ def rejected_row(
     )
 
 
-def parse_required_bool(raw_value: object) -> bool:
-    value = str(raw_value).strip().lower()
-    if value in {"true", "1", "yes", "y"}:
-        return True
-    if value in {"false", "0", "no", "n"}:
-        return False
-    raise ValueError(f"Invalid required boolean: {raw_value}")
-
-
 def parse_datetime(raw_value: object) -> datetime:
     parsed = datetime.fromisoformat(str(raw_value).strip())
     if parsed.tzinfo is None or parsed.utcoffset() is None:
@@ -602,6 +573,7 @@ def parse_amount(raw_value: object, errors: list[RowValidationError]) -> Decimal
         amount = Decimal(value)
         if not amount.is_finite():
             raise InvalidOperation
+        amount = amount.quantize(Decimal("0.01"))
         if amount <= 0:
             errors.append(
                 RowValidationError(
@@ -611,8 +583,17 @@ def parse_amount(raw_value: object, errors: list[RowValidationError]) -> Decimal
                 )
             )
             return None
-        return amount.quantize(Decimal("0.01"))
-    except (InvalidOperation, ValueError):
+        if amount > MAX_TRANSACTION_AMOUNT:
+            errors.append(
+                RowValidationError(
+                    field="amount",
+                    code="AMOUNT_OUT_OF_RANGE",
+                    message="amount exceeds the supported range.",
+                )
+            )
+            return None
+        return amount
+    except InvalidOperation:
         errors.append(
             RowValidationError(
                 field="amount",

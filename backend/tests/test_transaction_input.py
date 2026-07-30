@@ -212,6 +212,81 @@ def test_csv_import_rejects_length_overflow_invalid_uuid_and_unused_fields() -> 
     assert unsupported_response.json()["rows"][0]["errors"][0]["code"] == "CSV_UNKNOWN_FIELD"
 
 
+def test_csv_import_rejects_amount_exceeding_numeric_precision() -> None:
+    client = build_postgres_client()
+    user, group, member = setup_group_with_member(client)
+    category_id = first_category_id(client)
+
+    response = client.post(
+        f"/api/v1/groups/{group['group_id']}/transactions/import",
+        headers=auth_headers(user),
+        json={
+            "csv_text": csv_text(
+                [
+                    {
+                        "group_id": group["group_id"],
+                        "member_id": member["member_id"],
+                        "category_id": category_id,
+                        "transaction_at": "2026-07-01T10:00:00+09:00",
+                        "transaction_type": "WITHDRAWAL",
+                        "amount": "9999999999999.99",
+                        "source_row_key": "amount-out-of-range",
+                    }
+                ]
+            )
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["accepted_count"] == 0
+    assert body["rejected_count"] == 1
+    row = body["rows"][0]
+    assert row["status"] == "REJECTED"
+    assert row["errors"][0]["code"] == "AMOUNT_OUT_OF_RANGE"
+
+
+def test_invalid_row_does_not_reserve_source_row_key() -> None:
+    client = build_sqlite_client()
+    user, group, member = setup_group_with_member(client)
+    category_id = first_category_id(client)
+
+    response = client.post(
+        f"/api/v1/groups/{group['group_id']}/transactions/import",
+        headers=auth_headers(user),
+        json={
+            "csv_text": csv_text(
+                [
+                    {
+                        "group_id": group["group_id"],
+                        "member_id": member["member_id"],
+                        "category_id": "00000000-0000-4000-8000-000000000001",
+                        "transaction_at": "2026-07-01T10:00:00+09:00",
+                        "transaction_type": "WITHDRAWAL",
+                        "amount": "100",
+                        "source_row_key": "reusable-after-invalid",
+                    },
+                    {
+                        "group_id": group["group_id"],
+                        "member_id": member["member_id"],
+                        "category_id": category_id,
+                        "transaction_at": "2026-07-01T10:00:00+09:00",
+                        "transaction_type": "WITHDRAWAL",
+                        "amount": "100",
+                        "source_row_key": "reusable-after-invalid",
+                    },
+                ]
+            )
+        },
+    )
+
+    assert response.status_code == 201
+    rows = response.json()["rows"]
+    assert rows[0]["status"] == "REJECTED"
+    assert rows[0]["errors"][0]["code"] == "CATEGORY_NOT_FOUND"
+    assert rows[1]["status"] == "ACCEPTED"
+
+
 def test_csv_import_rejects_missing_category_other_group_member_and_duplicate_key() -> None:
     client = build_sqlite_client()
     user, group, member = setup_group_with_member(client)

@@ -10,6 +10,8 @@ IMPLEMENTED
 - CSV import API with row-level validation.
 - CSV contract narrowed to persisted fields only; unused fields such as currency and client-supplied source metadata are rejected.
 - Length overflow, invalid UUIDs, non-finite amounts, and timezone-less datetimes are rejected instead of silently normalized.
+- Amounts exceeding the `Numeric(14, 2)` storage range are rejected as row-level `AMOUNT_OUT_OF_RANGE` errors.
+- Rejected rows no longer reserve their `source_row_key` inside the current import batch.
 - Mock scenario list/apply APIs using synthetic `transactions_mock_v2.csv`.
 - Mock scenario application now rejects member count mismatches instead of modulo-mapping source members.
 - Transaction list, update, and delete APIs.

@@ -19,8 +19,8 @@ Docker Compose backend container on Windows host.
 - Bootstrap created local `.env` and generated local secrets.
 - Compose config passed. Output expands local secret values; do not paste raw output into shared docs.
 - Alembic upgraded through `20260730_0004`.
-- Phase 4 test file: 9 passed.
-- Full backend pytest: 48 passed, 1 known TestClient/httpx deprecation warning.
+- Phase 4 test file: 11 passed.
+- Full backend pytest: 50 passed, 1 known TestClient/httpx deprecation warning.
 - Ruff: passed after ignoring Windows bind-mount `EXE002`.
 - Clean PostgreSQL migration was verified in a separate Compose project without deleting the existing local `ufc` database volume.
 - `git diff --check`: passed with line-ending warnings only.

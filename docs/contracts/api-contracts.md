@@ -587,6 +587,7 @@ Field rules:
 - Accepted CSV fields: `group_id`, `member_id`, `category_id`, `transaction_at`, `transaction_type`, `amount`, `merchant_name`, `description`, `is_shared_expense`, `is_planned`, `is_recurring`, `is_excluded`, `exclusion_reason`, `source_row_key`.
 - `transaction_type`: enum, required, one of `DEPOSIT`, `WITHDRAWAL`.
 - `amount`: positive decimal. Direction is represented only by `transaction_type`, not negative amounts.
+- `amount`: must not exceed `999999999999.99`, matching the `Numeric(14, 2)` storage contract.
 - All transaction amounts in the MVP CSV contract are interpreted as KRW. The CSV contract does not accept a currency field.
 - `is_shared_expense`, `is_planned`, and `is_recurring`: nullable booleans. Blank cells are persisted as `null`, not `false`.
 - `is_excluded`: boolean, defaults to false when the CSV cell is blank.

@@ -1,18 +1,24 @@
+import csv
 import os
 from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.dependencies import get_db
 from app.db.base import Base
 from app.main import create_app
-from app.modules.transactions.service import ensure_seed_categories
+from app.modules.transactions.models import Category, CategoryBehaviorGroup
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+CATEGORY_SEED_PATH = BACKEND_ROOT / "migrations" / "data" / "20260730_0004_categories.csv"
 
 
 def build_client(database_url: str = "sqlite+pysqlite:///:memory:") -> TestClient:
@@ -29,7 +35,7 @@ def build_client(database_url: str = "sqlite+pysqlite:///:memory:") -> TestClien
     Base.metadata.create_all(bind=engine)
     testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     with testing_session_local() as seed_session:
-        ensure_seed_categories(seed_session)
+        seed_categories(seed_session)
     app = create_app()
 
     def override_get_db() -> Generator[Session, None, None]:
@@ -41,6 +47,27 @@ def build_client(database_url: str = "sqlite+pysqlite:///:memory:") -> TestClien
 
     app.dependency_overrides[get_db] = override_get_db
     return TestClient(app)
+
+
+def seed_categories(db: Session) -> None:
+    existing_ids = set(db.scalars(select(Category.id)).all())
+    with CATEGORY_SEED_PATH.open(encoding="utf-8-sig", newline="") as seed_file:
+        for row in csv.DictReader(seed_file):
+            if row["id"] in existing_ids:
+                continue
+            db.add(
+                Category(
+                    id=row["id"],
+                    code=row["code"].strip(),
+                    name=row["name"].strip(),
+                    behavior_group=CategoryBehaviorGroup(row["behavior_group"].strip()),
+                    display_order=int(row["display_order"]),
+                    is_active=row["is_active"].strip().upper() == "TRUE",
+                    created_at=datetime.fromisoformat(row["created_at"]),
+                    updated_at=datetime.fromisoformat(row["updated_at"]),
+                )
+            )
+    db.commit()
 
 
 def build_sqlite_client() -> TestClient:
