@@ -16,7 +16,7 @@ import { ForbiddenPage } from "../../pages/ForbiddenPage";
 import { HomePage } from "../../pages/HomePage";
 import { LoginPage } from "../../pages/LoginPage";
 import { NotFoundPage } from "../../pages/NotFoundPage";
-import { SettingsPage } from "../../pages/SettingsPage";
+import { SettingsDetailPage, SettingsPage } from "../../pages/SettingsPage";
 import { SignupPage } from "../../pages/SignupPage";
 
 export const router = createBrowserRouter([
@@ -95,6 +95,14 @@ export const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <SettingsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/settings/:section",
+    element: (
+      <ProtectedRoute>
+        <SettingsDetailPage />
       </ProtectedRoute>
     ),
   },

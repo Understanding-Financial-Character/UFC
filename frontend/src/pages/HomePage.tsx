@@ -1,5 +1,5 @@
 import { skipToken } from "@reduxjs/toolkit/query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import {
@@ -16,7 +16,7 @@ import {
 } from "../api/baseApi";
 import { useAppSelector } from "../app/hooks";
 import { ToastViewport } from "../components/feedback/ToastViewport";
-import type { AnalysisResponse, GroupResponse } from "../features/auth/types";
+import type { AnalysisResponse, GroupResponse, MemberCreateRequest } from "../features/auth/types";
 
 interface HomePageProps {
   variant?: "user" | "admin";
@@ -27,11 +27,39 @@ const demoCredential = {
   password: "correct-password",
 };
 
+const mbtiOptions = [
+  "ISTJ",
+  "ISFJ",
+  "INFJ",
+  "INTJ",
+  "ISTP",
+  "ISFP",
+  "INFP",
+  "INTP",
+  "ESTP",
+  "ESFP",
+  "ENFP",
+  "ENTP",
+  "ESTJ",
+  "ESFJ",
+  "ENFJ",
+  "ENTJ",
+];
+
+const defaultCreateMembers: MemberCreateRequest[] = [
+  { display_name: "민지", mbti: "ENFP" },
+  { display_name: "도윤", mbti: "ISTJ" },
+];
+
 export function HomePage({ variant = "user" }: HomePageProps) {
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
   const [activeAnalysisId, setActiveAnalysisId] = useState<string | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("새 모임통장");
+  const [createRelationship, setCreateRelationship] = useState<GroupResponse["relationship_type"]>("FRIENDS");
+  const [createMembers, setCreateMembers] = useState<MemberCreateRequest[]>(defaultCreateMembers);
   const [flowMessage, setFlowMessage] = useState<string | null>(null);
   const [flowError, setFlowError] = useState<string | null>(null);
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
@@ -41,17 +69,25 @@ export function HomePage({ variant = "user" }: HomePageProps) {
   const [createAnalysis, { isLoading: isCreatingAnalysis }] = useCreateAnalysisMutation();
   const { data: mockScenarios = [], isLoading: isMockLoading } = useListMockScenariosQuery();
   const { data: categories = [], isLoading: isCategoryLoading } = useListCategoriesQuery();
-  const { data: groups = [], isLoading: isGroupLoading } = useListGroupsQuery(undefined, {
+  const { data: groups = [], isLoading: isGroupLoading, refetch: refetchGroups } = useListGroupsQuery(undefined, {
     skip: !user,
   });
   const readyGroup = groups.find((group) => group.can_analyze);
-  const latestGroupId = activeGroupId ?? readyGroup?.group_id ?? null;
-  const { data: latestAnalysis } = useGetLatestGroupAnalysisQuery(latestGroupId ?? skipToken, {
+  const selectedGroup = groups.find((group) => group.group_id === activeGroupId) ?? readyGroup ?? groups[0];
+  const latestGroupId = selectedGroup?.group_id ?? null;
+  const { data: latestAnalysis, isFetching: isFetchingLatestAnalysis } = useGetLatestGroupAnalysisQuery(latestGroupId ?? skipToken, {
     skip: !user || Boolean(activeAnalysisId),
   });
   const { data: activeAnalysis } = useGetAnalysisQuery(activeAnalysisId ?? skipToken, {
     pollingInterval: activeAnalysisId ? 3000 : 0,
   });
+
+  useEffect(() => {
+    if (!user || activeGroupId || groups.length === 0) {
+      return;
+    }
+    setActiveGroupId((readyGroup ?? groups[0]).group_id);
+  }, [activeGroupId, groups, readyGroup, user]);
 
   const onLogout = async () => {
     await logout().unwrap().catch(() => undefined);
@@ -62,6 +98,7 @@ export function HomePage({ variant = "user" }: HomePageProps) {
     setFlowError(null);
     setFlowMessage(`${group.name} 분석을 실행하는 중입니다.`);
     setActiveGroupId(group.group_id);
+    setActiveAnalysisId(null);
     try {
       const analysis = await createAnalysis({
         groupId: group.group_id,
@@ -76,6 +113,23 @@ export function HomePage({ variant = "user" }: HomePageProps) {
       setFlowError(errorMessage(error));
       setFlowMessage(null);
     }
+  };
+
+  const openSelectedReport = () => {
+    const analysisId = activeAnalysis?.analysis_id ?? latestAnalysis?.analysis_id;
+    if (analysisId) {
+      navigate(`/analysis/result?analysisId=${analysisId}&groupId=${latestGroupId}`);
+      return;
+    }
+    if (latestGroupId) {
+      navigate(`/analysis/result?groupId=${latestGroupId}`);
+    }
+  };
+
+  const openGroupReport = (group: GroupResponse) => {
+    setActiveGroupId(group.group_id);
+    setActiveAnalysisId(null);
+    navigate(`/analysis/result?groupId=${group.group_id}`);
   };
 
   const runMockAnalysis = async () => {
@@ -115,11 +169,85 @@ export function HomePage({ variant = "user" }: HomePageProps) {
     }
   };
 
+  const updateCreateMember = (index: number, patch: Partial<MemberCreateRequest>) => {
+    setCreateMembers((current) =>
+      current.map((member, memberIndex) => (memberIndex === index ? { ...member, ...patch } : member)),
+    );
+  };
+
+  const addCreateMember = () => {
+    setCreateMembers((current) => {
+      if (current.length >= 4) {
+        return current;
+      }
+      return [...current, { display_name: `구성원 ${current.length + 1}`, mbti: "ENFP" }];
+    });
+  };
+
+  const removeCreateMember = (index: number) => {
+    setCreateMembers((current) => {
+      if (current.length <= 2) {
+        return current;
+      }
+      return current.filter((_member, memberIndex) => memberIndex !== index);
+    });
+  };
+
+  const createMeeting = async () => {
+    const normalizedMembers = createMembers.map((member) => ({
+      display_name: member.display_name.trim(),
+      mbti: member.mbti,
+    }));
+    if (!createName.trim()) {
+      setFlowError("모임 이름을 입력해 주세요.");
+      return;
+    }
+    if (normalizedMembers.some((member) => !member.display_name)) {
+      setFlowError("모든 구성원 이름을 입력해 주세요.");
+      return;
+    }
+
+    setFlowError(null);
+    setFlowMessage("새 모임을 생성하는 중입니다.");
+    try {
+      const group = await createGroup({
+        name: createName.trim(),
+        relationship_type: createRelationship,
+      }).unwrap();
+      for (const member of normalizedMembers) {
+        await addGroupMember({ groupId: group.group_id, body: member }).unwrap();
+      }
+      await refetchGroups();
+      setActiveGroupId(group.group_id);
+      setActiveAnalysisId(null);
+      setIsCreateOpen(false);
+      setCreateName("새 모임통장");
+      setCreateRelationship("FRIENDS");
+      setCreateMembers(defaultCreateMembers);
+      setFlowMessage(`${group.name} 모임이 생성됐습니다. mock 데이터 연결 후 분석을 실행할 수 있습니다.`);
+    } catch (error) {
+      setFlowError(errorMessage(error));
+      setFlowMessage(null);
+    }
+  };
+
   const readyGroups = groups.filter((group) => group.can_analyze).length;
   const primaryScenario = mockScenarios[0];
   const categoryCount = categories.length;
   const isFlowLoading = isCreatingGroup || isApplyingMock || isCreatingAnalysis;
   const insightAnalysis = activeAnalysis ?? latestAnalysis;
+  const hasSelectedReport = Boolean(insightAnalysis);
+  const visibleGroups = activeGroupId
+    ? [...groups].sort((left, right) => {
+        if (left.group_id === activeGroupId) {
+          return -1;
+        }
+        if (right.group_id === activeGroupId) {
+          return 1;
+        }
+        return 0;
+      })
+    : groups;
 
   return (
     <main className="landing-page">
@@ -186,20 +314,25 @@ export function HomePage({ variant = "user" }: HomePageProps) {
 
       <section className="meeting-grid" id="groups" aria-label="모임 성향 카드">
         {user && groups.length > 0
-          ? groups.slice(0, 4).map((group, index) => (
+          ? visibleGroups.map((group, index) => {
+              const isSelected = selectedGroup?.group_id === group.group_id;
+              return (
               <MeetingCard
                 key={group.group_id}
                 icon={["T", "W", "F", "O"][index % 4]}
                 name={group.name}
                 relationship={relationshipLabel(group.relationship_type)}
-                mbti={group.can_analyze ? "분석 가능" : "준비 중"}
+                mbti={isSelected ? "선택됨" : group.can_analyze ? "분석 가능" : "준비 중"}
                 progress={group.can_analyze ? 100 : Math.min(group.member_count * 25, 75)}
                 goal={`${group.member_count}/4명 구성`}
-                highlighted={index === 1}
+                highlighted={isSelected}
                 actionLabel={group.can_analyze ? "분석 실행" : undefined}
+                reportLabel="리포트 보기"
                 onAction={group.can_analyze ? () => startAnalysisForGroup(group) : undefined}
+                onReport={() => openGroupReport(group)}
               />
-            ))
+              );
+            })
           : demoMeetings.map((meeting) => <MeetingCard key={meeting.name} {...meeting} />)}
       </section>
 
@@ -214,6 +347,9 @@ export function HomePage({ variant = "user" }: HomePageProps) {
               analysis={insightAnalysis}
               groupCount={groups.length}
               readyGroupCount={readyGroups}
+              selectedGroup={selectedGroup}
+              isFetching={isFetchingLatestAnalysis}
+              onOpenReport={hasSelectedReport ? openSelectedReport : undefined}
               message={flowMessage}
               error={flowError}
             />
@@ -263,11 +399,126 @@ export function HomePage({ variant = "user" }: HomePageProps) {
         </section>
       )}
 
-      <Link className="floating-action" to={user ? "/app" : "/signup"} aria-label="새 모임 만들기">
+      <button
+        className="floating-action"
+        onClick={() => (user ? setIsCreateOpen(true) : navigate("/signup"))}
+        type="button"
+        aria-label="새 모임 만들기"
+      >
         +
-      </Link>
+      </button>
+      {user && isCreateOpen ? (
+        <CreateMeetingPanel
+          isLoading={isFlowLoading}
+          members={createMembers}
+          name={createName}
+          onAddMember={addCreateMember}
+          onClose={() => setIsCreateOpen(false)}
+          onCreate={createMeeting}
+          onMemberChange={updateCreateMember}
+          onRemoveMember={removeCreateMember}
+          onRelationshipChange={setCreateRelationship}
+          onNameChange={setCreateName}
+          relationship={createRelationship}
+        />
+      ) : null}
       <MobileNav />
     </main>
+  );
+}
+
+function CreateMeetingPanel({
+  isLoading,
+  members,
+  name,
+  relationship,
+  onAddMember,
+  onClose,
+  onCreate,
+  onMemberChange,
+  onNameChange,
+  onRelationshipChange,
+  onRemoveMember,
+}: {
+  isLoading: boolean;
+  members: MemberCreateRequest[];
+  name: string;
+  relationship: GroupResponse["relationship_type"];
+  onAddMember: () => void;
+  onClose: () => void;
+  onCreate: () => void;
+  onMemberChange: (index: number, patch: Partial<MemberCreateRequest>) => void;
+  onNameChange: (value: string) => void;
+  onRelationshipChange: (value: GroupResponse["relationship_type"]) => void;
+  onRemoveMember: (index: number) => void;
+}) {
+  return (
+    <div className="meeting-create-overlay" role="presentation">
+      <section className="meeting-create-panel" role="dialog" aria-modal="true" aria-label="새 모임 만들기">
+        <header>
+          <div>
+            <span>새 모임</span>
+            <h2>모임통장을 추가해요</h2>
+          </div>
+          <button aria-label="닫기" onClick={onClose} type="button">
+            ×
+          </button>
+        </header>
+        <label className="meeting-create-field">
+          <span>모임 이름</span>
+          <input value={name} onChange={(event) => onNameChange(event.target.value)} />
+        </label>
+        <label className="meeting-create-field">
+          <span>관계 유형</span>
+          <select value={relationship} onChange={(event) => onRelationshipChange(event.target.value as GroupResponse["relationship_type"])}>
+            <option value="FRIENDS">친구 모임</option>
+            <option value="COUPLE">부부/연인</option>
+            <option value="FAMILY">가족</option>
+            <option value="OTHER">기타 모임</option>
+          </select>
+        </label>
+        <div className="meeting-create-members">
+          <div>
+            <span>구성원 MBTI</span>
+            <small>2~4명까지 추가할 수 있어요</small>
+          </div>
+          {members.map((member, index) => (
+            <div className="meeting-create-member" key={`${index}-${member.mbti}`}>
+              <input
+                aria-label={`구성원 ${index + 1} 이름`}
+                value={member.display_name}
+                onChange={(event) => onMemberChange(index, { display_name: event.target.value })}
+              />
+              <select
+                aria-label={`구성원 ${index + 1} MBTI`}
+                value={member.mbti}
+                onChange={(event) => onMemberChange(index, { mbti: event.target.value })}
+              >
+                {mbtiOptions.map((mbti) => (
+                  <option key={mbti} value={mbti}>
+                    {mbti}
+                  </option>
+                ))}
+              </select>
+              <button disabled={members.length <= 2} onClick={() => onRemoveMember(index)} type="button">
+                삭제
+              </button>
+            </div>
+          ))}
+          <button className="meeting-create-add" disabled={members.length >= 4} onClick={onAddMember} type="button">
+            구성원 추가
+          </button>
+        </div>
+        <footer>
+          <button className="meeting-create-secondary" onClick={onClose} type="button">
+            취소
+          </button>
+          <button disabled={isLoading} onClick={onCreate} type="button">
+            {isLoading ? "생성 중" : "모임 만들기"}
+          </button>
+        </footer>
+      </section>
+    </div>
   );
 }
 
@@ -289,7 +540,9 @@ interface MeetingCardProps {
   goal: string;
   highlighted?: boolean;
   actionLabel?: string;
+  reportLabel?: string;
   onAction?: () => void;
+  onReport?: () => void;
 }
 
 function MeetingCard({
@@ -301,29 +554,33 @@ function MeetingCard({
   goal,
   highlighted,
   actionLabel,
+  reportLabel,
   onAction,
+  onReport,
 }: MeetingCardProps) {
   return (
     <article className={`meeting-card-ui${highlighted ? " meeting-card-ui--highlighted" : ""}`}>
-      <div className="meeting-card-header">
-        <div className="meeting-title-row">
-          <span className="meeting-icon" aria-hidden="true">
-            {icon}
-          </span>
-          <div>
-            <h2>{name}</h2>
-            <p>{relationship}</p>
+      <div className="meeting-card-body">
+        <div className="meeting-card-header">
+          <div className="meeting-title-row">
+            <span className="meeting-icon" aria-hidden="true">
+              {icon}
+            </span>
+            <div>
+              <h2>{name}</h2>
+              <p>{relationship}</p>
+            </div>
           </div>
+          <span className="mbti-chip">{mbti}</span>
         </div>
-        <span className="mbti-chip">{mbti}</span>
-      </div>
-      <div className="progress-area">
-        <div>
-          <span>목표 달성률</span>
-          <strong>{progress}%</strong>
-        </div>
-        <div className="progress-track">
-          <i style={{ width: `${progress}%` }} />
+        <div className="progress-area">
+          <div>
+            <span>목표 달성률</span>
+            <strong>{progress}%</strong>
+          </div>
+          <div className="progress-track">
+            <i style={{ width: `${progress}%` }} />
+          </div>
         </div>
       </div>
       <footer>
@@ -331,9 +588,20 @@ function MeetingCard({
           <span>목표 정보</span>
           <strong>{goal}</strong>
         </div>
-        <button aria-label={actionLabel ? `${name} ${actionLabel}` : `${name} 자세히 보기`} onClick={onAction} type="button">
-          {actionLabel ? "실행" : "›"}
-        </button>
+        <div className="meeting-card-actions">
+          {reportLabel && onReport ? (
+            <button aria-label={`${name} ${reportLabel}`} onClick={onReport} type="button">
+              리포트
+            </button>
+          ) : null}
+          {actionLabel && onAction ? (
+            <button aria-label={`${name} ${actionLabel}`} onClick={onAction} type="button">
+              분석
+            </button>
+          ) : (
+            <span className="meeting-card-hint">준비 중</span>
+          )}
+        </div>
       </footer>
     </article>
   );
@@ -343,12 +611,18 @@ function AnalysisInsight({
   analysis,
   groupCount,
   readyGroupCount,
+  selectedGroup,
+  isFetching,
+  onOpenReport,
   message,
   error,
 }: {
   analysis?: AnalysisResponse;
   groupCount: number;
   readyGroupCount: number;
+  selectedGroup?: GroupResponse;
+  isFetching: boolean;
+  onOpenReport?: () => void;
   message: string | null;
   error: string | null;
 }) {
@@ -356,9 +630,11 @@ function AnalysisInsight({
     return (
       <div className="analysis-empty">
         <p>
+          {selectedGroup ? `${selectedGroup.name} 모임이 선택되어 있습니다. ` : ""}
           현재 계정은 {groupCount}개 모임을 가지고 있고, 그중 {readyGroupCount}개 모임이 분석 준비
-          상태입니다. 준비된 모임에서 분석을 실행하거나 mock-v2 데모 분석을 만들 수 있습니다.
+          상태입니다. 선택한 모임에서 분석을 실행하거나 mock-v2 데모 분석을 만들 수 있습니다.
         </p>
+        {isFetching ? <p className="flow-status">선택한 모임의 최신 리포트를 확인하는 중입니다.</p> : null}
         <StatusLine message={message} error={error} />
       </div>
     );
@@ -374,7 +650,8 @@ function AnalysisInsight({
   return (
     <div className="analysis-summary">
       <p className="analysis-kicker">
-        {analysis.status} · {analysis.result_status ?? "결과 대기"} · {analysis.is_synthetic ? "Mock 데이터" : "사용자 데이터"}
+        {selectedGroup?.name ?? "선택한 모임"} · {analysis.status} · {analysis.result_status ?? "결과 대기"} ·{" "}
+        {analysis.is_synthetic ? "Mock 데이터" : "사용자 데이터"}
       </p>
       <h3>{report?.headline ?? "소비 MBTI 분석 결과"}</h3>
       <p>{report?.summary ?? "규칙 엔진 결과와 Evidence를 기반으로 분석 결과를 표시합니다."}</p>
@@ -397,6 +674,11 @@ function AnalysisInsight({
       ) : null}
       {report?.conversationQuestions?.length ? (
         <p className="question-line">{report.conversationQuestions[0]}</p>
+      ) : null}
+      {onOpenReport ? (
+        <button className="insight-report-action" onClick={onOpenReport} type="button">
+          이 모임 리포트 자세히 보기
+        </button>
       ) : null}
       <StatusLine message={message} error={error} />
     </div>
