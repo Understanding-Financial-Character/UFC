@@ -234,15 +234,17 @@ Qwen3 must not recalculate or change the supplied spending MBTI.
 
 ## Persistence Contract
 
-BE Phase 5 persists deterministic analysis and AI report records in four tables:
+BE Phase 5 persists deterministic analysis and AI report records in four tables. BE Phase 6 orchestrates writes to those tables:
 
-- `analysis_runs`: execution status, `result_status`, provisional reasons, analysis period, source marker, schema/analysis version, and snapshot hash.
+- `analysis_runs`: execution status, `result_status`, provisional reasons, analysis period, source marker, schema/analysis version, minimized `AnalysisInput` snapshot, snapshot hash, and optional `retried_from_analysis_id`.
 - `behavior_metrics`: AN Phase 2 `BehaviorFeatureResult` rows with `feature_code`, `status`, `raw_value`, `normalized_score`, `unit`, `sample_count`, evidence, schema/calculation version, snapshot hash, and `metric_metadata.axisContributions`.
 - `consumption_mbti_results`: nullable `mbti_type`, duplicated `result_status`, axis scores, fixed E/N/F/P score directions, confidence, coverage, limitations, schema/rule version, and snapshot hash.
 - `ai_reports`: report status, generated content when available, failure/fallback fields, model, prompt version, repair status, validation result, schema version, and snapshot hash.
 
-`analysis_runs.status` is execution state and must not be mixed with `analysis_runs.result_status`. `PENDING` and `RUNNING` rows keep `result_status=NULL`; completed runs set it after preprocessing, feature calculation, and rule execution determine result quality. `result_status=INSUFFICIENT_DATA` must keep `consumption_mbti_results.mbti_type` as `NULL`.
+`analysis_runs.status` is execution state and must not be mixed with `analysis_runs.result_status`. `READY`, `ANALYZING`, `REPORT_GENERATING`, `PENDING`, and `RUNNING` rows keep `result_status=NULL`. Terminal successful states `COMPLETED`, `PARTIALLY_COMPLETED`, and `COMPLETED_WITH_FALLBACK` set `result_status` after preprocessing, feature calculation, and rule execution determine result quality. `FAILED` rows keep `result_status=NULL`. `result_status=INSUFFICIENT_DATA` must keep `consumption_mbti_results.mbti_type` as `NULL`.
+
+`analysis_input_snapshot` stores only the DTO fields passed into deterministic analysis. It excludes account numbers, card numbers, bank credentials, raw CSV text, and transaction descriptions; merchant values are stored as normalized `merchant_key`. `snapshot_hash` is calculated from this immutable snapshot so a failed run can be retried against the same input.
 
 Child persistence rows inherit `snapshot_hash` from `analysis_runs`; callers must not provide divergent child snapshot hashes.
 
-AI Phase 2 does not connect analysis orchestration or `ai_reports` persistence. BE Phase 5 adds persistence only; orchestration remains BE Phase 6.
+AI report fallback or failure does not change deterministic rule results. A fallback report uses `COMPLETED_WITH_FALLBACK`; a report failure after deterministic result persistence uses `PARTIALLY_COMPLETED`. If the combined preprocessing and rule status is `INSUFFICIENT_DATA`, AI report generation is skipped and the run completes with deterministic result rows only. A `PARTIALLY_COMPLETED` run with `ai_reports.status=FAILED` can retry report generation by updating the existing `ai_reports` row; this retry does not create a new analysis run or recalculate deterministic outputs. Report retry must use the persisted input snapshot for member MBTI summary so the generated report does not mix current group state with historical metric/rule evidence.

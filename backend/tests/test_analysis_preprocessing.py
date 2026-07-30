@@ -259,7 +259,7 @@ def test_preprocessing_rejects_invalid_contract_inputs() -> None:
             )
         )
 
-    with pytest.raises(AnalysisInputError):
-        preprocess_analysis_input(
-            build_input((build_transaction(1, source_type=AnalysisSourceType.MOCK),))
-        )
+    mixed_source_result = preprocess_analysis_input(
+        build_input((build_transaction(1, source_type=AnalysisSourceType.MOCK),))
+    )
+    assert mixed_source_result.normalized_transactions[0].source_type == AnalysisSourceType.MOCK

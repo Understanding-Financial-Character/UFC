@@ -29,6 +29,22 @@ from app.modules.analysis_results.models import (
 VALID_AXES = frozenset(AXIS_SCORE_DIRECTIONS)
 VALID_HIGH_POLES = {axis: values["high"] for axis, values in AXIS_SCORE_DIRECTIONS.items()}
 VALID_LOW_POLES = {axis: values["low"] for axis, values in AXIS_SCORE_DIRECTIONS.items()}
+ACTIVE_ANALYSIS_STATUSES = frozenset(
+    {
+        AnalysisRunStatus.READY,
+        AnalysisRunStatus.ANALYZING,
+        AnalysisRunStatus.REPORT_GENERATING,
+        AnalysisRunStatus.PENDING,
+        AnalysisRunStatus.RUNNING,
+    }
+)
+SUCCESSFUL_ANALYSIS_STATUSES = frozenset(
+    {
+        AnalysisRunStatus.COMPLETED,
+        AnalysisRunStatus.COMPLETED_WITH_FALLBACK,
+        AnalysisRunStatus.PARTIALLY_COMPLETED,
+    }
+)
 
 
 class AnalysisResultRepository:
@@ -38,6 +54,7 @@ class AnalysisResultRepository:
     def create_analysis_run(
         self,
         *,
+        analysis_run_id: str | None = None,
         group_id: str,
         analysis_period_started_at: datetime,
         analysis_period_ended_at: datetime,
@@ -46,18 +63,23 @@ class AnalysisResultRepository:
         input_schema_version: str,
         analysis_version: str,
         snapshot_hash: str,
+        analysis_input_snapshot: dict[str, Any],
+        retried_from_analysis_id: str | None = None,
         error_code: str | None = None,
         error_message: str | None = None,
-        status: AnalysisRunStatus = AnalysisRunStatus.PENDING,
+        status: AnalysisRunStatus = AnalysisRunStatus.READY,
     ) -> AnalysisRun:
-        if status not in {AnalysisRunStatus.PENDING, AnalysisRunStatus.RUNNING}:
-            raise ValueError("create_analysis_run only supports PENDING or RUNNING status.")
+        if status not in ACTIVE_ANALYSIS_STATUSES:
+            raise ValueError("create_analysis_run only supports active analysis statuses.")
         self._validate_nonblank("input_schema_version", input_schema_version)
         self._validate_nonblank("analysis_version", analysis_version)
         self._validate_nonblank("snapshot_hash", snapshot_hash)
         if analysis_period_started_at > analysis_period_ended_at:
             raise ValueError("analysis_period_started_at must be before or equal to analysis_period_ended_at.")
+        if not analysis_input_snapshot:
+            raise ValueError("analysis_input_snapshot must not be empty.")
         run = AnalysisRun(
+            id=analysis_run_id,
             group_id=group_id,
             status=status,
             result_status=None,
@@ -69,6 +91,8 @@ class AnalysisResultRepository:
             input_schema_version=input_schema_version,
             analysis_version=analysis_version,
             snapshot_hash=snapshot_hash,
+            analysis_input_snapshot=analysis_input_snapshot,
+            retried_from_analysis_id=retried_from_analysis_id,
             error_code=error_code,
             error_message=error_message,
         )
@@ -82,14 +106,31 @@ class AnalysisResultRepository:
         *,
         result_status: ResultStatus,
         provisional_reasons: Sequence[ProvisionalReason | str],
+        status: AnalysisRunStatus = AnalysisRunStatus.COMPLETED,
     ) -> AnalysisRun:
+        if status not in SUCCESSFUL_ANALYSIS_STATUSES:
+            raise ValueError("complete_analysis_run requires a successful terminal status.")
         self._validate_result_status_reasons(result_status, provisional_reasons)
         analysis_run = self._require_analysis_run(analysis_run_id)
-        analysis_run.status = AnalysisRunStatus.COMPLETED
+        analysis_run.status = status
         analysis_run.result_status = result_status
         analysis_run.provisional_reasons = [self._enum_value(reason) for reason in provisional_reasons]
         analysis_run.error_code = None
         analysis_run.error_message = None
+        self.db.flush()
+        return analysis_run
+
+    def update_analysis_run_status(
+        self,
+        analysis_run_id: str,
+        *,
+        status: AnalysisRunStatus,
+    ) -> AnalysisRun:
+        if status in SUCCESSFUL_ANALYSIS_STATUSES:
+            raise ValueError("Use complete_analysis_run for successful terminal statuses.")
+        analysis_run = self._require_analysis_run(analysis_run_id)
+        analysis_run.status = status
+        analysis_run.result_status = None
         self.db.flush()
         return analysis_run
 
@@ -198,7 +239,7 @@ class AnalysisResultRepository:
         self._validate_nonblank("schema_version", schema_version)
         self._validate_nonblank("rule_version", rule_version)
         analysis_run = self._require_analysis_run(analysis_run_id)
-        if analysis_run.status != AnalysisRunStatus.COMPLETED or analysis_run.result_status is None:
+        if analysis_run.status not in SUCCESSFUL_ANALYSIS_STATUSES or analysis_run.result_status is None:
             raise ValueError("analysis_run must be completed before saving consumption MBTI result.")
         if analysis_run.result_status == ResultStatus.INSUFFICIENT_DATA and mbti_type is not None:
             raise ValueError("mbti_type must be null when result_status is INSUFFICIENT_DATA.")
@@ -268,6 +309,44 @@ class AnalysisResultRepository:
         self.db.flush()
         return report
 
+    def update_ai_report(
+        self,
+        report: AIReport,
+        *,
+        status: AIReportStatus,
+        report_content: dict[str, Any] | None,
+        model_name: str | None,
+        prompt_version: str | None,
+        latency_ms: int | None,
+        fallback_used: bool,
+        fallback_reason: str | None,
+        repair_attempted: bool,
+        validation_result: dict[str, Any],
+        failure_reason: str | None,
+        schema_version: str,
+    ) -> AIReport:
+        self._validate_nonblank("schema_version", schema_version)
+        self._validate_ai_report_payload(
+            status=status,
+            report_content=report_content,
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            failure_reason=failure_reason,
+        )
+        report.status = status
+        report.report_content = report_content
+        report.model_name = model_name
+        report.prompt_version = prompt_version
+        report.latency_ms = latency_ms
+        report.fallback_used = fallback_used
+        report.fallback_reason = fallback_reason
+        report.repair_attempted = repair_attempted
+        report.validation_result = validation_result
+        report.failure_reason = failure_reason
+        report.schema_version = schema_version
+        self.db.flush()
+        return report
+
     def _require_analysis_run(self, analysis_run_id: str) -> AnalysisRun:
         analysis_run = self.get_analysis_run(analysis_run_id)
         if analysis_run is None:
@@ -290,10 +369,8 @@ class AnalysisResultRepository:
         provisional_reasons: Sequence[ProvisionalReason | str],
     ) -> None:
         reasons = [cls._enum_value(reason) for reason in provisional_reasons]
-        valid_reasons = {reason.value for reason in ProvisionalReason}
-        invalid_reasons = [reason for reason in reasons if reason not in valid_reasons]
-        if invalid_reasons:
-            raise ValueError("provisional_reasons contains unknown values.")
+        if any(not reason.strip() for reason in reasons):
+            raise ValueError("provisional_reasons must not contain blank values.")
         if result_status == ResultStatus.STANDARD and reasons:
             raise ValueError("STANDARD result_status must not have provisional_reasons.")
         if result_status != ResultStatus.STANDARD and not reasons:

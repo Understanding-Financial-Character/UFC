@@ -664,17 +664,16 @@ Request fields are optional individually, but at least one field must be provide
 ### Create Analysis
 
 - Method and path: `POST /groups/{groupId}/analyses`
-- Sync or async: Async result creation
-- Idempotency: Recommended for repeated requests with the same group and period
-- Resource owner: Authorized group member
+- Sync or async: Synchronous execution for MVP; response is still pollable through lookup APIs
+- Idempotency: Not required; concurrent active runs for the same group are rejected
+- Resource owner: Group owner
 - Success status: `202 Accepted`
-- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `GROUP_NOT_READY`, `ANALYSIS_ALREADY_RUNNING`, `INTERNAL_ERROR`
 
 Request:
 
 ```json
 {
-  "schema_version": "1.0",
   "period_start": "2026-05-01",
   "period_end": "2026-07-29"
 }
@@ -687,8 +686,23 @@ Response:
   "schema_version": "1.0",
   "analysis_id": "uuid",
   "group_id": "uuid",
-  "status": "PENDING",
-  "created_at": "2026-07-29T00:00:00Z"
+  "status": "COMPLETED",
+  "result_status": "PROVISIONAL",
+  "provisional_reasons": ["SYNTHETIC_DATA"],
+  "analysis_period_started_at": "2026-05-01T00:00:00Z",
+  "analysis_period_ended_at": "2026-07-29T23:59:59.999999Z",
+  "source_type": "MOCK",
+  "is_synthetic": true,
+  "input_schema_version": "analysis-input-v1",
+  "analysis_version": "be-orchestration-v1",
+  "snapshot_hash": "sha256",
+  "error_code": null,
+  "error_message": null,
+  "created_at": "2026-07-29T00:00:00Z",
+  "updated_at": "2026-07-29T00:00:00Z",
+  "behavior_metrics": [],
+  "consumption_mbti_result": null,
+  "ai_report": null
 }
 ```
 
@@ -696,16 +710,23 @@ Field rules:
 
 - `period_start`: ISO 8601 date, required
 - `period_end`: ISO 8601 date, required, must be greater than or equal to `period_start`
-- `status`: enum, required, one of `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`
+- Date-only analysis periods are interpreted in the canonical analysis timezone `Asia/Seoul`, then converted to UTC for persistence and transaction lookup.
+- `status`: enum, required, one of `READY`, `ANALYZING`, `REPORT_GENERATING`, `COMPLETED`, `PARTIALLY_COMPLETED`, `COMPLETED_WITH_FALLBACK`, `FAILED`, plus legacy persistence states `PENDING`, `RUNNING`
+- `GROUP_NOT_READY`: returned when the group does not have 2-4 members with MBTI.
+- `ANALYSIS_ALREADY_RUNNING`: returned when an active run already exists for the group.
+- Backend converts persisted transactions to pure `AnalysisInput` DTOs before calling analysis code.
+- Backend stores a minimized immutable analysis input snapshot internally and returns only `snapshot_hash` through the API.
+- If deterministic analysis returns `INSUFFICIENT_DATA`, AI report generation is skipped and `ai_report` remains `null`.
+- Qwen3 receives only grounded aggregate evidence and never raw transaction arrays.
 
 ### Get Analysis
 
 - Method and path: `GET /analyses/{analysisId}`
 - Sync or async: Sync lookup
 - Idempotency: Safe read
-- Resource owner: Authorized member of the analysis group
+- Resource owner: Group owner
 - Success status: `200 OK`
-- Error codes: `NOT_FOUND`, `INTERNAL_ERROR`
+- Error codes: `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `INTERNAL_ERROR`
 
 Response:
 
@@ -717,18 +738,75 @@ Response:
   "status": "COMPLETED",
   "result_status": "PROVISIONAL",
   "provisional_reasons": ["INSUFFICIENT_TRANSACTION_COUNT"],
-  "confidence": {
-    "level": "LOW",
-    "score": 0.42
+  "analysis_period_started_at": "2026-05-01T00:00:00Z",
+  "analysis_period_ended_at": "2026-07-29T23:59:59.999999Z",
+  "source_type": "CSV",
+  "is_synthetic": false,
+  "input_schema_version": "analysis-input-v1",
+  "analysis_version": "be-orchestration-v1",
+  "snapshot_hash": "sha256",
+  "error_code": null,
+  "error_message": null,
+  "behavior_metrics": [],
+  "consumption_mbti_result": {
+    "mbti_type": "ENFP",
+    "result_status": "PROVISIONAL",
+    "axis_scores": {"EI": 0.62, "SN": 0.58, "TF": 0.55, "JP": 0.71},
+    "confidence": {"level": "LOW", "score": 0.42},
+    "coverage": 0.82,
+    "limitations": [],
+    "rule_version": "consumption-mbti-v1",
+    "metadata": {}
   },
-  "spending_mbti": "ENFP",
-  "limitations": []
+  "ai_report": {
+    "status": "COMPLETED",
+    "fallback_used": false,
+    "fallback_reason": null,
+    "model_name": "qwen3:4b",
+    "prompt_version": "grounded-report-v1",
+    "report_content": {}
+  }
 }
 ```
 
 This response must follow `docs/contracts/analysis-output-contract.md`.
 
-`PENDING`, `RUNNING`, `COMPLETED`, and `FAILED` analysis states are returned as `200 OK` lookup responses. Limited but usable data is not an API error; it is represented as `result_status: "PROVISIONAL"` with `provisional_reasons`.
+All analysis states are returned as `200 OK` lookup responses. Limited but usable data is not an API error; it is represented as `result_status: "PROVISIONAL"` with `provisional_reasons`.
+
+### Get Latest Group Analysis
+
+- Method and path: `GET /groups/{groupId}/analyses/latest`
+- Sync or async: Sync lookup
+- Idempotency: Safe read
+- Resource owner: Group owner
+- Success status: `200 OK`
+- Error codes: `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `INTERNAL_ERROR`
+
+Response: same as Get Analysis.
+
+### Retry Analysis
+
+- Method and path: `POST /analyses/{analysisId}/retry`
+- Sync or async: Synchronous re-execution for MVP
+- Idempotency: Not required
+- Resource owner: Group owner
+- Success status: `202 Accepted`
+- Error codes: `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `ANALYSIS_ALREADY_RUNNING`, `ANALYSIS_RETRY_NOT_ALLOWED`, `INTERNAL_ERROR`
+
+Retry is allowed only for `FAILED` runs. It creates a new analysis run linked to the original run and reuses the original persisted analysis input snapshot instead of reading the latest transactions again.
+
+### Retry AI Report
+
+- Method and path: `POST /analyses/{analysisId}/report/retry`
+- Sync or async: Synchronous report regeneration for MVP
+- Idempotency: Not required
+- Resource owner: Group owner
+- Success status: `202 Accepted`
+- Error codes: `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `ANALYSIS_REPORT_RETRY_NOT_ALLOWED`, `INTERNAL_ERROR`
+
+Retry AI Report is allowed only when the analysis run is `PARTIALLY_COMPLETED`, the existing AI report row is `FAILED`, and deterministic behavior metrics plus consumption MBTI results already exist. It does not create a new analysis run and does not re-read transactions, preprocess input, recalculate behavior metrics, or rerun the rule engine.
+
+Report retry locks the target analysis run before validating retry state. A concurrent retry that observes the run after it has moved to `REPORT_GENERATING` is rejected with `ANALYSIS_REPORT_RETRY_NOT_ALLOWED`. Report retry builds member MBTI summary from the persisted analysis input snapshot, not from current group member rows.
 
 ### Get AI Report
 
