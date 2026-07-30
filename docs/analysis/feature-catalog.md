@@ -5,6 +5,7 @@
 Each feature records:
 
 - `metric_code`
+- `status`: `AVAILABLE` or `UNAVAILABLE`
 - Description
 - Input fields
 - Calculation
@@ -16,6 +17,8 @@ Each feature records:
 - MBTI axes used
 
 Unavailable features are excluded from rule scoring. They are not converted to zero.
+
+AN Phase 2 output schema version is `behavior-features-v1`. It consumes preprocessed `NormalizedTransaction` rows and does not depend on SQLAlchemy, FastAPI, or DB sessions.
 
 ## MVP Feature Candidates
 
@@ -39,6 +42,19 @@ Unavailable features are excluded from rule scoring. They are not converted to z
 | `RECURRING_EXPENSE_RATIO` | Recurring spending share | `is_recurring`, `amount` | recurring amount / marked amount | Amount | 0-1 | 1 marked transaction | Exclude NULL marker rows | Recurring spending is X% | JP |
 | `WEEKLY_EXPENSE_VOLATILITY` | Weekly spending volatility | `occurred_at`, `amount` | stddev weekly totals / average weekly total, capped at 1 | Amount | 0-1 | 2 weeks | Required date only | Weekly volatility is X | JP |
 | `OUTLIER_RATIO` | Outlier transaction share | `amount` | outlier count / transaction count | Count | 0-1 | 5 transactions | Required amount only | Outlier transactions are X% | JP |
+
+## AN Phase 2 Implementation Notes
+
+- Amount ratios use amount denominators; merchant and outlier ratios use count denominators.
+- `is_shared_expense`, `is_planned`, and `is_recurring` rows with `NULL` markers are excluded from each marker-specific denominator.
+- Night spending is `18:00 <= local occurred_at.hour` or `local occurred_at.hour < 06:00` after converting UTC-normalized timestamps to the analysis timezone.
+- Weekend spending uses Saturday and Sunday in the analysis timezone. MVP timezone is `Asia/Seoul`.
+- `WEEKEND_SOCIAL_SPENDING_RATIO` uses strong social signals only: `behavior_group=RELATIONSHIP`, `category_code=GATHERING`, or `is_shared_expense=true`.
+- `NEW_MERCHANT_RATIO` is unavailable until a merchant baseline before the analysis period exists.
+- `REPEAT_MERCHANT_RATIO` counts visits after the first occurrence within the analysis window.
+- `WEEKLY_EXPENSE_VOLATILITY` uses observation start/end context, includes calendar weeks with no spending as zero, stores raw CV in `raw_value`, and caps `normalized_score` at `1.0`.
+- `OUTLIER_RATIO` uses a median/MAD threshold, with a median-based fallback when MAD is zero.
+- Feature output records `behavior-policy-v1` and `category-map-v2` alongside `behavior-features-v1`.
 
 ## Preprocessing Inputs
 

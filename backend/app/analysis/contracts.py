@@ -6,6 +6,9 @@ from datetime import datetime
 from decimal import Decimal
 
 ANALYSIS_INPUT_SCHEMA_VERSION = "analysis-input-v1"
+BEHAVIOR_FEATURE_SCHEMA_VERSION = "behavior-features-v1"
+BEHAVIOR_FEATURE_POLICY_VERSION = "behavior-policy-v1"
+CATEGORY_MAPPING_VERSION = "category-map-v2"
 
 
 class GroupPurposeType(str, enum.Enum):
@@ -55,6 +58,38 @@ class ProvisionalReason(str, enum.Enum):
     LOW_MERCHANT_COVERAGE = "LOW_MERCHANT_COVERAGE"
     SYNTHETIC_DATA = "SYNTHETIC_DATA"
     NO_ANALYZABLE_WITHDRAWALS = "NO_ANALYZABLE_WITHDRAWALS"
+
+
+class BehaviorFeatureCode(str, enum.Enum):
+    SHARED_EXPENSE_RATIO = "SHARED_EXPENSE_RATIO"
+    WEEKEND_SOCIAL_SPENDING_RATIO = "WEEKEND_SOCIAL_SPENDING_RATIO"
+    NIGHT_SPENDING_RATIO = "NIGHT_SPENDING_RATIO"
+    TRAVEL_EXPERIENCE_RATIO = "TRAVEL_EXPERIENCE_RATIO"
+    PRACTICAL_SPENDING_RATIO = "PRACTICAL_SPENDING_RATIO"
+    CATEGORY_CONCENTRATION = "CATEGORY_CONCENTRATION"
+    CATEGORY_DIVERSITY_SCORE = "CATEGORY_DIVERSITY_SCORE"
+    NEW_MERCHANT_RATIO = "NEW_MERCHANT_RATIO"
+    REPEAT_MERCHANT_RATIO = "REPEAT_MERCHANT_RATIO"
+    EXPERIENCE_SPENDING_RATIO = "EXPERIENCE_SPENDING_RATIO"
+    SAVING_EDUCATION_RATIO = "SAVING_EDUCATION_RATIO"
+    RELATIONSHIP_SPENDING_RATIO = "RELATIONSHIP_SPENDING_RATIO"
+    SHARED_EXPERIENCE_RATIO = "SHARED_EXPERIENCE_RATIO"
+    GIFT_ANNIVERSARY_RATIO = "GIFT_ANNIVERSARY_RATIO"
+    PLANNED_EXPENSE_RATIO = "PLANNED_EXPENSE_RATIO"
+    RECURRING_EXPENSE_RATIO = "RECURRING_EXPENSE_RATIO"
+    WEEKLY_EXPENSE_VOLATILITY = "WEEKLY_EXPENSE_VOLATILITY"
+    OUTLIER_RATIO = "OUTLIER_RATIO"
+
+
+class BehaviorFeatureUnit(str, enum.Enum):
+    AMOUNT_RATIO = "AMOUNT_RATIO"
+    COUNT_RATIO = "COUNT_RATIO"
+    SCORE = "SCORE"
+
+
+class BehaviorFeatureStatus(str, enum.Enum):
+    AVAILABLE = "AVAILABLE"
+    UNAVAILABLE = "UNAVAILABLE"
 
 
 @dataclass(frozen=True)
@@ -158,3 +193,31 @@ class PreprocessingResult:
     provisional_reasons: tuple[ProvisionalReason, ...]
     limitations: tuple[str, ...]
     data_quality_report: DataQualityReport
+
+
+@dataclass(frozen=True)
+class BehaviorFeatureResult:
+    feature_code: BehaviorFeatureCode
+    status: BehaviorFeatureStatus
+    raw_value: float | None
+    normalized_score: float | None
+    unit: BehaviorFeatureUnit
+    sample_count: int
+    evidence: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class BehaviorMetricsInput:
+    transactions: tuple[NormalizedTransaction, ...]
+    observation_started_at: datetime
+    observation_ended_at: datetime
+    timezone: str = "Asia/Seoul"
+
+
+@dataclass(frozen=True)
+class BehaviorMetricsResult:
+    schema_version: str
+    policy_version: str
+    category_mapping_version: str
+    analysis_timezone: str
+    features: tuple[BehaviorFeatureResult, ...]
