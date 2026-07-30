@@ -36,7 +36,7 @@ Frontend polling integration remains a later frontend phase.
 - Initial implementation: `d25b552`
 - Review fixes verified: `a9bf962`
 - Verification record: `c3afd61`
-- Pending report-retry review fix commit.
+- Report retry review fix: `9fb4390`
 ## Blockers
 None.
 ## Handover Notes
