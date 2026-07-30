@@ -16,6 +16,14 @@
 - `VITE_API_BASE_URL`이 FastAPI 주소와 일치하는지 확인한다.
 - 로컬 기본값은 `http://localhost:8000`이다.
 
+## Frontend Vite/npm on Windows
+
+- [Frontend Vite npm Windows Issues](frontend-vite-npm-windows.md)
+
+## Backend lint on Windows bind mounts
+
+- [Backend Ruff EXE002 On Windows Bind Mount](backend-ruff-exe002-windows-bind-mount.md)
+
 ## Backend test warnings
 
 - [Backend TestClient httpx Deprecation Warning](backend-testclient-httpx-warning.md)
