@@ -6,11 +6,11 @@ Defines deterministic analysis outputs consumed by backend persistence, frontend
 
 ## Status
 
-Target contract. Behavior metrics are tracked by AN Phase 2 / PR #6 and are not completed on `main`.
+Behavior feature output is implemented by AN Phase 2. Axis scoring, final consumption MBTI, and grounded AI report output remain target contracts for later phases.
 
 ## Schema Versions
 
-- `behavior-metrics-v1`
+- `behavior-features-v1`
 - `axis-scores-v1`
 - `consumption-mbti-v1`
 - `grounded-ai-report-v1`
@@ -19,13 +19,51 @@ Target contract. Behavior metrics are tracked by AN Phase 2 / PR #6 and are not 
 
 ```json
 {
-  "schemaVersion": "behavior-metrics-v1",
-  "metrics": {},
-  "evidence": []
+  "schemaVersion": "behavior-features-v1",
+  "features": [
+    {
+      "featureCode": "SHARED_EXPENSE_RATIO",
+      "status": "AVAILABLE",
+      "rawValue": 0.42,
+      "normalizedScore": 0.42,
+      "unit": "AMOUNT_RATIO",
+      "sampleCount": 18,
+      "evidence": ["공동지출 42000원이 표본 금액 100000원의 42.0%입니다."]
+    }
+  ]
 }
 ```
 
-Behavior metrics must include calculation evidence and minimum-data handling. Missing inputs produce unavailable metrics, not zero.
+Behavior features include calculation evidence and minimum-data handling. Missing inputs produce `status=UNAVAILABLE` with `rawValue=null` and `normalizedScore=null`, not zero.
+
+Feature units:
+
+- `AMOUNT_RATIO`: amount numerator divided by amount denominator
+- `COUNT_RATIO`: count numerator divided by count denominator
+- `SCORE`: already normalized score such as entropy diversity or capped volatility
+
+Implemented AN Phase 2 feature codes:
+
+- `SHARED_EXPENSE_RATIO`
+- `WEEKEND_SOCIAL_SPENDING_RATIO`
+- `NIGHT_SPENDING_RATIO`
+- `TRAVEL_EXPERIENCE_RATIO`
+- `PRACTICAL_SPENDING_RATIO`
+- `CATEGORY_CONCENTRATION`
+- `CATEGORY_DIVERSITY_SCORE`
+- `NEW_MERCHANT_RATIO`
+- `REPEAT_MERCHANT_RATIO`
+- `EXPERIENCE_SPENDING_RATIO`
+- `SAVING_EDUCATION_RATIO`
+- `RELATIONSHIP_SPENDING_RATIO`
+- `SHARED_EXPERIENCE_RATIO`
+- `GIFT_ANNIVERSARY_RATIO`
+- `PLANNED_EXPENSE_RATIO`
+- `RECURRING_EXPENSE_RATIO`
+- `WEEKLY_EXPENSE_VOLATILITY`
+- `OUTLIER_RATIO`
+
+AN Phase 2 consumes only `NormalizedTransaction` rows from preprocessing. It defensively ignores non-`WITHDRAWAL` transaction types if they are passed by mistake.
 
 ## Axis Scores
 

@@ -5,6 +5,7 @@
 Each feature records:
 
 - `metric_code`
+- `status`: `AVAILABLE` or `UNAVAILABLE`
 - Description
 - Input fields
 - Calculation
@@ -16,6 +17,8 @@ Each feature records:
 - MBTI axes used
 
 Unavailable features are excluded from rule scoring. They are not converted to zero.
+
+AN Phase 2 output schema version is `behavior-features-v1`. It consumes preprocessed `NormalizedTransaction` rows and does not depend on SQLAlchemy, FastAPI, or DB sessions.
 
 ## MVP Feature Candidates
 
@@ -39,6 +42,17 @@ Unavailable features are excluded from rule scoring. They are not converted to z
 | `RECURRING_EXPENSE_RATIO` | Recurring spending share | `is_recurring`, `amount` | recurring amount / marked amount | Amount | 0-1 | 1 marked transaction | Exclude NULL marker rows | Recurring spending is X% | JP |
 | `WEEKLY_EXPENSE_VOLATILITY` | Weekly spending volatility | `occurred_at`, `amount` | stddev weekly totals / average weekly total, capped at 1 | Amount | 0-1 | 2 weeks | Required date only | Weekly volatility is X | JP |
 | `OUTLIER_RATIO` | Outlier transaction share | `amount` | outlier count / transaction count | Count | 0-1 | 5 transactions | Required amount only | Outlier transactions are X% | JP |
+
+## AN Phase 2 Implementation Notes
+
+- Amount ratios use amount denominators; merchant and outlier ratios use count denominators.
+- `is_shared_expense`, `is_planned`, and `is_recurring` rows with `NULL` markers are excluded from each marker-specific denominator.
+- Night spending is `18:00 <= occurred_at.hour` or `occurred_at.hour < 06:00` after AN Phase 1 timezone normalization.
+- Weekend spending uses Saturday and Sunday based on normalized datetimes.
+- `NEW_MERCHANT_RATIO` counts the first occurrence of each `merchant_key` in deterministic `(occurred_at, transaction_id)` order.
+- `REPEAT_MERCHANT_RATIO` counts transactions whose `merchant_key` appears more than once in the feature sample.
+- `WEEKLY_EXPENSE_VOLATILITY` uses weekly total coefficient of variation and caps the score at `1.0`.
+- `OUTLIER_RATIO` uses a median/MAD threshold, with a median-based fallback when MAD is zero.
 
 ## Preprocessing Inputs
 

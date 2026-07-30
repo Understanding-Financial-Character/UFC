@@ -1,7 +1,7 @@
 # AN Phase 2 - Behavior Metrics
 
 ## Status
-IN_PROGRESS
+IMPLEMENTED
 ## Goal
 Calculate deterministic behavior metrics from quality-checked analysis input.
 ## Why
@@ -21,12 +21,12 @@ None in this phase unless later explicitly approved.
 ## Security Considerations
 Do not include raw identities or full transaction arrays in downstream AI payloads.
 ## Implementation Tasks
-Tracked by PR #6.
+Implemented `behavior-features-v1` DTOs and deterministic feature calculations from AN Phase 1 `NormalizedTransaction` rows. Reviewed PR #6 and preserved usable calculation patterns for category concentration, merchant repetition, weekend spending, planned spending, volatility, and deterministic reruns while realigning names and inputs to AN Phase 2.
 ## Test Scenarios
-Normal, concentrated, repeat, volatile, missing/sparse, deterministic rerun.
+Feature-level normal calculations, nullable behavior signals, zero transactions, one transaction, repeated merchants, new merchants, weekend and night boundaries, category concentration and diversity, outliers, and defensive exclusion of non-withdrawal rows.
 ## Completion Criteria
-PR #6 or successor merged and verification recorded.
+Implementation, contracts, docs, and verification recorded on `feat/an-phase-2-behavior-metrics`.
 ## Branch
-`feat/ai-phase-1-behavior-metrics`
+`feat/an-phase-2-behavior-metrics`
 ## Dependencies
 AN Phase 1 or test stub.

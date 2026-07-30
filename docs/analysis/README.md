@@ -25,6 +25,8 @@ The backend provides `analysis-input-v1` with source-level transaction facts. Th
 - analysis-period sufficiency checks
 - feature availability decisions
 
+AN Phase 2 adds the deterministic behavior feature engine. It consumes preprocessed `NormalizedTransaction` rows and emits `behavior-features-v1` without applying axis weights, MBTI rules, persistence, API routing, or Qwen3 calls.
+
 ## Entry Documents
 
 - [Feature Catalog](feature-catalog.md)

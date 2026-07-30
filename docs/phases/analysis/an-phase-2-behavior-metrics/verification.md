@@ -1,20 +1,33 @@
 # AN Phase 2 - Behavior Metrics Verification
 
 ## Verified Commit
-Not verified on `main`.
+Pending final commit.
 ## Verified At
-Not executed for this rebaseline branch.
+2026-07-30
 ## Environment
-Not executed.
+Docker Compose dev backend on PostgreSQL 16.
 ## Commands
-Not executed.
+- `docker compose -f compose.yaml -f compose.dev.yaml config`
+- `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend alembic upgrade head`
+- `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest tests/test_behavior_metrics.py`
+- `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest`
+- `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend ruff check app tests`
+- `git diff --check`
 ## Results
-PR #6 is not merged into `main`; no completed implementation is recorded here.
+- Compose config: passed.
+- Alembic upgrade head: passed.
+- AN Phase 2 behavior metric tests: 8 passed.
+- Full backend tests: 83 passed, 1 upstream deprecation warning from FastAPI/Starlette TestClient.
+- Ruff: passed.
+- Diff whitespace check: passed.
 ## API Evidence
 Not applicable.
 ## DB Evidence
-Not applicable.
+No schema change in AN Phase 2. Existing migration chain applies cleanly to head.
 ## Security Evidence
-Not executed.
+- Feature engine consumes `NormalizedTransaction` dataclasses only.
+- Analysis code does not import SQLAlchemy, FastAPI routers, or database sessions.
+- Feature output contains aggregate values and evidence text, not raw account numbers, card numbers, credentials, tokens, ciphertext, or full transaction arrays for Qwen3.
 ## Known Limitations
-PR #6 state discrepancy must be resolved by the PR owner.
+- Axis weights, rule engine, final MBTI, DB persistence, API routing, and Qwen3 calls are out of scope.
+- `NEW_MERCHANT_RATIO` treats the first occurrence in the provided normalized window as new because no historical merchant baseline exists in AN Phase 2.
