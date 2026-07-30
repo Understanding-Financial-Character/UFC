@@ -26,6 +26,11 @@ class GroupStatus(str, enum.Enum):
     READY_FOR_ANALYSIS = "READY_FOR_ANALYSIS"
 
 
+class GroupMemberStatus(str, enum.Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
+
+
 class MBTIType(str, enum.Enum):
     ISTJ = "ISTJ"
     ISFJ = "ISFJ"
@@ -78,6 +83,11 @@ class GroupMember(Base):
         ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True
     )
     display_name: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[GroupMemberStatus] = mapped_column(
+        Enum(GroupMemberStatus, name="group_member_status"),
+        nullable=False,
+        default=GroupMemberStatus.ACTIVE,
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
