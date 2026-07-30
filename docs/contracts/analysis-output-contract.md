@@ -84,4 +84,36 @@ Qwen3 must not receive user email, user name or nickname, internal user id, full
 
 Qwen3 failure does not invalidate deterministic analysis output.
 
-AI Phase 1 introduces the runtime provider boundary only. Prompt finalization, AI report schema validation, orchestration hookup, and `ai_reports` persistence remain later phase responsibilities.
+## Grounded AI Report
+
+AI Phase 2 defines `grounded-ai-report-v1`.
+
+Required report fields:
+
+```json
+{
+  "headline": "ENFP 소비 리포트",
+  "summary": "제공된 근거를 바탕으로 한 요약입니다.",
+  "strengths": ["근거 기반 장점"],
+  "commonPoints": ["구성원 MBTI와 소비 MBTI의 공통점"],
+  "differences": ["구성원 MBTI와 소비 MBTI의 차이점"],
+  "observationPoints": ["관찰 포인트"],
+  "conversationQuestions": ["대화 질문"],
+  "disclaimer": "실제 성격 진단이나 금융 진단이 아닙니다."
+}
+```
+
+Validation requirements:
+
+- Pydantic schema validation.
+- Numeric evidence consistency check.
+- Unsupported claim check.
+- Real personality or financial diagnosis wording check.
+- Financial product recommendation check.
+- JSON parse/schema failure gets one repair attempt.
+- Repeated failure, timeout, or provider failure returns template fallback.
+- Metadata records prompt version, model, latency, fallback status, repair status, and validation flags.
+
+Qwen3 must not recalculate or change the supplied spending MBTI.
+
+AI Phase 2 does not connect analysis orchestration or `ai_reports` persistence. Those remain BE orchestration and analysis persistence phase responsibilities.

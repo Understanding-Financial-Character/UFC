@@ -1,4 +1,11 @@
 from app.ai.factory import build_report_generator
+from app.ai.grounded_report import (
+    GroundedReport,
+    GroundedReportInput,
+    GroundedReportMetadata,
+    GroundedReportResult,
+    GroundedReportService,
+)
 from app.ai.report_generator import (
     EvidenceItem,
     FakeReportGenerator,
@@ -15,6 +22,11 @@ __all__ = [
     "EvidenceItem",
     "FakeReportGenerator",
     "FallbackReportGenerator",
+    "GroundedReport",
+    "GroundedReportInput",
+    "GroundedReportMetadata",
+    "GroundedReportResult",
+    "GroundedReportService",
     "OllamaHealth",
     "OllamaQwenReportGenerator",
     "ReportGenerationRequest",

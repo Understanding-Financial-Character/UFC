@@ -19,6 +19,7 @@
 ## Frontend Vite/npm on Windows
 
 - [Frontend Vite npm Windows Issues](frontend-vite-npm-windows.md)
+- [Stale Frontend Image After Package Change](stale-frontend-image-after-package-change.md)
 
 ## Backend lint on Windows bind mounts
 
@@ -28,3 +29,7 @@
 
 - [Backend TestClient httpx Deprecation Warning](backend-testclient-httpx-warning.md)
 - [Docker Ruff EXE002 on Windows Mounts](docker-ruff-exe002-windows.md)
+
+## Local database state
+
+- [Stale Local PostgreSQL Volume After Branch Switch](stale-local-postgres-volume-after-branch-switch.md)

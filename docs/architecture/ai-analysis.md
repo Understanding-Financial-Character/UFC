@@ -40,6 +40,21 @@ The Ollama provider exposes `/api/tags` health checks for readiness and operatio
 
 Generation uses non-streaming responses, non-thinking mode by default, and conservative options.
 
+## Grounded Report Pipeline
+
+AI Phase 2 adds `GroundedReportService`:
+
+1. Build a minimized prompt payload from spending MBTI, axis scores, confidence, top evidence, member MBTI summary, limitations, and result status.
+2. Request a JSON-only Korean report from Qwen3.
+3. Validate the JSON with a Pydantic schema.
+4. Check numeric evidence consistency.
+5. Reject unsupported claims, real diagnosis wording, and financial product recommendation wording.
+6. Attempt one JSON repair when parsing or schema validation fails.
+7. Use deterministic template fallback when repair fails or the provider times out/fails.
+8. Return report metadata with prompt version, model, latency, validation flags, repair status, and fallback status.
+
+Grounded report output fields are `headline`, `summary`, `strengths`, `commonPoints`, `differences`, `observationPoints`, `conversationQuestions`, and `disclaimer`.
+
 ## Deterministic Before Generative
 
 Qwen3 4B must not be the source of truth for scores, categories, or final spending MBTI type.

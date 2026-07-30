@@ -271,8 +271,14 @@ class OllamaQwenReportGenerator:
         prefix = "" if self.settings.llm_thinking_enabled else SAFE_PROMPT_PREFIX
         return (
             f"{prefix}"
-            "UFC 소비 MBTI 결과를 사용자에게 설명하는 짧은 리포트를 작성하세요. "
-            "제공된 JSON 근거만 사용하고, 실제 성격 진단이나 금융 조언처럼 말하지 마세요.\n"
+            "UFC 소비 MBTI 결과를 사용자에게 설명하는 한국어 리포트를 작성하세요. "
+            "제공된 JSON 근거만 사용하고, 실제 성격 진단이나 금융 조언처럼 말하지 마세요. "
+            "응답은 반드시 JSON 객체 하나만 출력하세요. "
+            "필수 키는 headline, summary, strengths, commonPoints, differences, "
+            "observationPoints, conversationQuestions, disclaimer 입니다. "
+            "strengths, commonPoints, differences, observationPoints, conversationQuestions는 "
+            "문자열 배열이어야 합니다. "
+            "소비 MBTI를 다시 계산하거나 변경하지 마세요.\n"
             f"{payload}"
         )
 
