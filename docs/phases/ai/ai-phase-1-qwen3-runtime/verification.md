@@ -19,12 +19,13 @@ macOS local development environment with Docker Compose.
 ## Results
 - Compose config passed.
 - Alembic upgrade passed with no new migration.
-- AI runtime unit tests passed: 11 tests.
-- Full backend test suite passed: 50 tests.
+- AI runtime unit tests passed after review hardening: 18 tests.
+- Full backend test suite passed after review hardening: 57 tests.
 - Backend Ruff passed.
 - `make verify` passed, including backend tests, backend lint, frontend lint, frontend build, migration, and whitespace checks.
 - AI profile Compose config passed.
 - `make -n ai-smoke` confirmed the Ollama smoke command path without pulling or running `qwen3:4b`.
+- Review hardening covered direct `/api/generate` generation, HTTP 400/404/500 classification, optional template fallback, and thinking-mode prompt behavior.
 ## API Evidence
 Not applicable. No new API route was added.
 ## DB Evidence

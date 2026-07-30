@@ -20,6 +20,13 @@ AI Phase 1 provides a provider boundary under `backend/app/ai`:
 
 The provider receives only aggregate, grounded report input. It does not query SQLAlchemy models, access FastAPI routers, run orchestration, or load raw transactions.
 
+Provider selection policy:
+
+- `ollama`: use Ollama only; typed exceptions propagate to the caller.
+- `ollama_with_template_fallback`: use Ollama first, then fall back to `TemplateReportGenerator` for connection, timeout, missing model, or unusable response errors.
+- `template`: always use deterministic template text.
+- `fake`: deterministic test provider.
+
 ## Ollama Runtime Settings
 
 - `LLM_PROVIDER=ollama`
@@ -29,7 +36,9 @@ The provider receives only aggregate, grounded report input. It does not query S
 - `LLM_TEMPERATURE=0.2`
 - `LLM_TIMEOUT_SECONDS=30`
 
-The Ollama provider checks `/api/tags` before generation and fails when the configured model is missing. Generation uses non-streaming responses, non-thinking mode by default, and conservative options.
+The Ollama provider exposes `/api/tags` health checks for readiness and operational diagnostics. Generation calls `/api/generate` directly so report generation does not pay a health-check round trip on every request. Model-not-found responses from generation are converted to `LLMModelNotInstalledError`.
+
+Generation uses non-streaming responses, non-thinking mode by default, and conservative options.
 
 ## Deterministic Before Generative
 

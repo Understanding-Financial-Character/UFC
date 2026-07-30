@@ -16,3 +16,12 @@ class LLMModelNotInstalledError(ReportGenerationError):
 
 class LLMResponseError(ReportGenerationError):
     """Raised when the LLM runtime returns an unusable response."""
+
+
+class LLMHttpError(ReportGenerationError):
+    """Raised when the LLM runtime returns an HTTP error response."""
+
+    def __init__(self, status_code: int, response_body: str) -> None:
+        self.status_code = status_code
+        self.response_body = response_body
+        super().__init__(f"LLM runtime returned HTTP {status_code}.")

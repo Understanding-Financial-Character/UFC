@@ -8,8 +8,10 @@ VERIFYING
 - `FakeReportGenerator`.
 - `TemplateReportGenerator`.
 - LLM provider factory.
+- Optional `ollama_with_template_fallback` provider policy.
 - LLM temperature and timeout settings.
 - Ollama `/api/tags` model health check.
+- Direct `/api/generate` call path with HTTP error classification.
 - Non-thinking mode and conservative generation options.
 ## Remaining
 Commit, push, open PR, and record PR number.

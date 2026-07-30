@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 from urllib.parse import urljoin
 
 from app.ai.exceptions import (
     LLMConnectionError,
+    LLMHttpError,
     LLMModelNotInstalledError,
     LLMResponseError,
     LLMTimeoutError,
@@ -123,6 +124,9 @@ class UrlLibOllamaTransport:
                 raw = response.read().decode("utf-8")
         except TimeoutError as exc:
             raise LLMTimeoutError("LLM runtime request timed out.") from exc
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            raise LLMHttpError(exc.code, body) from exc
         except urllib.error.URLError as exc:
             raise LLMConnectionError("LLM runtime is not reachable.") from exc
         try:
@@ -169,6 +173,31 @@ class FakeReportGenerator:
 
 
 @dataclass(frozen=True)
+class FallbackReportGenerator:
+    primary: ReportGenerator
+    fallback: ReportGenerator
+
+    def generate(self, request: ReportGenerationRequest) -> ReportGenerationResult:
+        try:
+            return self.primary.generate(request)
+        except (
+            LLMConnectionError,
+            LLMTimeoutError,
+            LLMModelNotInstalledError,
+            LLMResponseError,
+        ) as exc:
+            result = self.fallback.generate(request)
+            return replace(
+                result,
+                fallback_used=True,
+                metadata={
+                    **result.metadata,
+                    "fallbackReason": type(exc).__name__,
+                },
+            )
+
+
+@dataclass(frozen=True)
 class OllamaQwenReportGenerator:
     settings: Settings
     transport: OllamaTransport | None = None
@@ -188,7 +217,13 @@ class OllamaQwenReportGenerator:
         models = data.get("models")
         if not isinstance(models, list):
             raise LLMResponseError("Ollama tags response is missing models.")
-        model_names = {str(model.get("name", "")) for model in models if isinstance(model, dict)}
+        model_names = {
+            value
+            for model in models
+            if isinstance(model, dict)
+            for value in (str(model.get("name", "")), str(model.get("model", "")))
+            if value
+        }
         model_installed = self.settings.llm_model in model_names
         if not model_installed:
             raise LLMModelNotInstalledError(f"LLM model is not installed: {self.settings.llm_model}")
@@ -199,7 +234,6 @@ class OllamaQwenReportGenerator:
         )
 
     def generate(self, request: ReportGenerationRequest) -> ReportGenerationResult:
-        self.check_health()
         payload = {
             "model": self.settings.llm_model,
             "prompt": self._build_prompt(request),
@@ -211,11 +245,14 @@ class OllamaQwenReportGenerator:
                 "num_predict": 512,
             },
         }
-        data = self.client.post_json(
-            "/api/generate",
-            payload,
-            timeout_seconds=self.settings.llm_timeout_seconds,
-        )
+        try:
+            data = self.client.post_json(
+                "/api/generate",
+                payload,
+                timeout_seconds=self.settings.llm_timeout_seconds,
+            )
+        except LLMHttpError as exc:
+            self._raise_for_http_error(exc)
         text = data.get("response")
         if not isinstance(text, str) or not text.strip():
             raise LLMResponseError("Ollama response is missing report text.")
@@ -238,3 +275,11 @@ class OllamaQwenReportGenerator:
             "제공된 JSON 근거만 사용하고, 실제 성격 진단이나 금융 조언처럼 말하지 마세요.\n"
             f"{payload}"
         )
+
+    def _raise_for_http_error(self, exc: LLMHttpError) -> None:
+        body = exc.response_body.lower()
+        if exc.status_code == 404 and "model" in body:
+            raise LLMModelNotInstalledError(
+                f"LLM model is not installed: {self.settings.llm_model}"
+            ) from exc
+        raise LLMResponseError(f"LLM runtime returned HTTP {exc.status_code}.") from exc

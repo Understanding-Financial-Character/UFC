@@ -1,3 +1,4 @@
+import io
 import urllib.error
 from dataclasses import dataclass
 from typing import Any, Self
@@ -6,6 +7,7 @@ import pytest
 
 from app.ai.exceptions import (
     LLMConnectionError,
+    LLMHttpError,
     LLMModelNotInstalledError,
     LLMResponseError,
     LLMTimeoutError,
@@ -14,6 +16,7 @@ from app.ai.factory import build_report_generator
 from app.ai.report_generator import (
     EvidenceItem,
     FakeReportGenerator,
+    FallbackReportGenerator,
     OllamaQwenReportGenerator,
     ReportGenerationRequest,
     TemplateReportGenerator,
@@ -52,10 +55,12 @@ class StubTransport:
     tags: dict[str, Any]
     generated: dict[str, Any] | None = None
     posted_payload: dict[str, Any] | None = None
+    get_calls: int = 0
 
     def get_json(self, path: str, *, timeout_seconds: int) -> dict[str, Any]:
         assert path == "/api/tags"
         assert timeout_seconds == 30
+        self.get_calls += 1
         return self.tags
 
     def post_json(
@@ -109,6 +114,34 @@ def test_ollama_generator_checks_model_and_posts_non_thinking_payload() -> None:
     assert transport.posted_payload["prompt"].startswith("/no_think\n")
     assert "FOOD 40%" in transport.posted_payload["prompt"]
     assert "email" not in transport.posted_payload["prompt"].lower()
+    assert transport.get_calls == 0
+
+
+def test_ollama_health_accepts_model_field_alias() -> None:
+    transport = StubTransport(tags={"models": [{"model": "qwen3:4b"}]})
+    generator = OllamaQwenReportGenerator(settings=build_settings(), transport=transport)
+
+    health = generator.check_health()
+
+    assert health.model_installed is True
+    assert health.model == "qwen3:4b"
+
+
+def test_ollama_generator_omits_no_think_when_thinking_enabled() -> None:
+    transport = StubTransport(
+        tags={"models": [{"name": "qwen3:4b"}]},
+        generated={"response": "thinking report"},
+    )
+    generator = OllamaQwenReportGenerator(
+        settings=build_settings(llm_thinking_enabled=True),
+        transport=transport,
+    )
+
+    generator.generate(build_request())
+
+    assert transport.posted_payload is not None
+    assert transport.posted_payload["think"] is True
+    assert not transport.posted_payload["prompt"].startswith("/no_think")
 
 
 def test_ollama_generator_rejects_missing_model() -> None:
@@ -149,6 +182,10 @@ def test_report_generator_factory_selects_provider() -> None:
         build_report_generator(build_settings(llm_provider="ollama")),
         OllamaQwenReportGenerator,
     )
+    assert isinstance(
+        build_report_generator(build_settings(llm_provider="ollama_with_template_fallback")),
+        FallbackReportGenerator,
+    )
 
 
 def test_report_generator_factory_rejects_unknown_provider() -> None:
@@ -176,6 +213,102 @@ def test_url_transport_maps_connection_error(monkeypatch: pytest.MonkeyPatch) ->
 
     with pytest.raises(LLMConnectionError):
         transport.get_json("/api/tags", timeout_seconds=1)
+
+
+def test_url_transport_maps_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def raise_http_error(*args: object, **kwargs: object) -> object:
+        raise urllib.error.HTTPError(
+            url="http://ollama:11434/api/generate",
+            code=400,
+            msg="bad request",
+            hdrs={},
+            fp=io.BytesIO(b"bad request"),
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", raise_http_error)
+    transport = UrlLibOllamaTransport("http://ollama:11434")
+
+    with pytest.raises(LLMHttpError) as exc_info:
+        transport.post_json("/api/generate", {}, timeout_seconds=1)
+
+    assert exc_info.value.status_code == 400
+
+
+def test_ollama_generator_maps_http_400_to_response_error() -> None:
+    class BadRequestTransport(StubTransport):
+        def post_json(
+            self,
+            path: str,
+            payload: dict[str, Any],
+            *,
+            timeout_seconds: int,
+        ) -> dict[str, Any]:
+            raise LLMHttpError(400, "bad request")
+
+    generator = OllamaQwenReportGenerator(
+        settings=build_settings(),
+        transport=BadRequestTransport(tags={"models": [{"name": "qwen3:4b"}]}),
+    )
+
+    with pytest.raises(LLMResponseError):
+        generator.generate(build_request())
+
+
+def test_ollama_generator_maps_generate_model_404_to_missing_model() -> None:
+    class MissingModelTransport(StubTransport):
+        def post_json(
+            self,
+            path: str,
+            payload: dict[str, Any],
+            *,
+            timeout_seconds: int,
+        ) -> dict[str, Any]:
+            raise LLMHttpError(404, "model qwen3:4b not found")
+
+    generator = OllamaQwenReportGenerator(
+        settings=build_settings(),
+        transport=MissingModelTransport(tags={"models": [{"name": "qwen3:4b"}]}),
+    )
+
+    with pytest.raises(LLMModelNotInstalledError):
+        generator.generate(build_request())
+
+
+def test_ollama_generator_maps_http_500_to_response_error() -> None:
+    class InternalErrorTransport(StubTransport):
+        def post_json(
+            self,
+            path: str,
+            payload: dict[str, Any],
+            *,
+            timeout_seconds: int,
+        ) -> dict[str, Any]:
+            raise LLMHttpError(500, "internal error")
+
+    generator = OllamaQwenReportGenerator(
+        settings=build_settings(),
+        transport=InternalErrorTransport(tags={"models": [{"name": "qwen3:4b"}]}),
+    )
+
+    with pytest.raises(LLMResponseError):
+        generator.generate(build_request())
+
+
+def test_fallback_report_generator_records_reason() -> None:
+    class TimeoutGenerator:
+        def generate(self, request: ReportGenerationRequest) -> object:
+            raise LLMTimeoutError("slow")
+
+    generator = FallbackReportGenerator(
+        primary=TimeoutGenerator(),
+        fallback=TemplateReportGenerator(),
+    )
+
+    result = generator.generate(build_request())
+
+    assert result.provider == "template"
+    assert result.fallback_used is True
+    assert result.metadata["fallbackReason"] == "LLMTimeoutError"
 
 
 def test_url_transport_rejects_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:

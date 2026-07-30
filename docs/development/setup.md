@@ -73,6 +73,8 @@ Backend provider settings:
 - `LLM_TEMPERATURE=0.2`
 - `LLM_TIMEOUT_SECONDS=30`
 
+Use `LLM_PROVIDER=ollama_with_template_fallback` only when the caller wants Ollama failures to return deterministic template text instead of propagating typed exceptions.
+
 ## Nginx
 
 Nginx is deferred until Integration/Delivery phases. It is not part of default `make dev`.
