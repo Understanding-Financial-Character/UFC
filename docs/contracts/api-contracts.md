@@ -736,7 +736,8 @@ This response must follow `docs/contracts/analysis-output-contract.md`.
 - Sync or async: Sync lookup after generation
 - Idempotency: Safe read
 - Resource owner: Authorized member of the analysis group
-- Success status: `200 OK`
+- Success status: `200 OK` when the report record has been saved
+- Pending status: `202 Accepted` when deterministic analysis is complete but report generation has not saved a report yet
 - Error codes: `NOT_FOUND`, `AI_REPORT_UNAVAILABLE`, `INTERNAL_ERROR`
 
 Response:
@@ -747,25 +748,60 @@ Response:
   "analysis_id": "uuid",
   "report_id": "uuid",
   "status": "COMPLETED",
-  "summary": "최근 3개월 동안 이 모임은 새로운 장소와 공동 경험 소비가 두드러졌습니다.",
-  "sections": [
-    {
-      "title": "주요 특징",
-      "body": "주말 외식과 여행 카테고리 비중이 높았습니다."
-    }
-  ],
-  "limitations": ["거래 건수가 적어 잠정 결과입니다."]
+  "prompt_version": "grounded-report-v1",
+  "model": "qwen3:4b",
+  "fallback_used": false,
+  "repair_attempted": false,
+  "latency_ms": 1240,
+  "validation_result": {
+    "schema": true,
+    "evidenceNumbers": true,
+    "unsupportedClaims": false,
+    "unsupportedClaimsCheck": "LIMITED",
+    "diagnosisLanguage": true,
+    "financialRecommendation": true
+  },
+  "report": {
+    "headline": "ENFP 소비 리포트",
+    "summary": "제공된 근거를 바탕으로 한 요약입니다.",
+    "strengths": ["근거 기반 장점"],
+    "commonPoints": ["구성원 MBTI와 소비 MBTI의 공통점"],
+    "differences": ["구성원 MBTI와 소비 MBTI의 차이점"],
+    "observationPoints": ["관찰 포인트"],
+    "conversationQuestions": ["대화 질문"],
+    "disclaimer": "실제 성격 진단이나 금융 진단이 아닙니다."
+  }
 }
 ```
 
 Field rules:
 
-- `status`: enum, required, one of `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`
-- `summary`: string, required when `status` is `COMPLETED`
-- `sections`: array, required when `status` is `COMPLETED`
-- `limitations`: array of strings, required, may be empty
+- `status`: enum, required, one of `COMPLETED`, `FALLBACK_COMPLETED`, `FAILED`
+- `report`: object, required when `status` is `COMPLETED` or `FALLBACK_COMPLETED`
+- `report` must follow `grounded-ai-report-v1` from `docs/contracts/analysis-output-contract.md`
+- `fallback_used`: `true` only when template fallback produced the saved report
+- `validation_result`: AI Phase 2 grounding validation metadata
 
-`PENDING`, `RUNNING`, `COMPLETED`, and `FAILED` report states are returned as `200 OK` lookup responses when the report resource exists. Temporary LLM service failure uses `AI_REPORT_UNAVAILABLE`.
+Pending response before an `ai_reports` row exists:
+
+```json
+{
+  "schema_version": "1.0",
+  "analysis_id": "uuid",
+  "status": "REPORT_PENDING",
+  "report": null
+}
+```
+
+`COMPLETED`, `FALLBACK_COMPLETED`, and `FAILED` report states are returned as `200 OK` lookup responses when the report resource exists. Qwen3 failure does not invalidate deterministic analysis output. A saved fallback report uses `FALLBACK_COMPLETED`.
+
+Report lookup state mapping:
+
+- Analysis missing or inaccessible: `404 NOT_FOUND`
+- Analysis not completed yet: `409 CONFLICT`
+- Analysis completed but no `ai_reports` row has been saved yet: `202 Accepted` with `REPORT_PENDING`
+- AI report row saved with `COMPLETED`, `FALLBACK_COMPLETED`, or `FAILED`: `200 OK`
+- Report generation infrastructure cannot determine or recover report state: `503 AI_REPORT_UNAVAILABLE`
 
 ## Versioning Rules
 
