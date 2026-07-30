@@ -59,6 +59,32 @@ Owns member display labels inside a group. The current implementation stores per
 
 Target owner for category code, display label, and classification metadata used by transaction normalization and analysis.
 
+Implemented in BE Phase 4:
+
+- `id`
+- `code`
+- `name`
+- `behavior_group`
+- `display_order`
+- `is_active`
+- `created_at`
+- `updated_at`
+
+`behavior_group` is retained as source metadata for later Feature Catalog work. BE Phase 4 does not calculate behavior features or MBTI scores.
+
+Seed data for the initial category set is owned by migration revision `20260730_0004` in `backend/migrations/data/20260730_0004_categories.csv`. Read APIs must not insert or repair category seed rows.
+
+### transactions
+
+Implemented in BE Phase 4 as normalized source transaction input.
+
+- `amount` is positive.
+- `transaction_type` stores money direction as `DEPOSIT` or `WITHDRAWAL`.
+- `is_shared_expense`, `is_planned`, and `is_recurring` are nullable and have no database default.
+- `source_row_key` is unique within the same group when present.
+- `member_id` is nullable; when present it must reference an `ACTIVE` member in the same group.
+- The schema intentionally has no account number, card number, bank credential, access token, or refresh token fields.
+
 Category-to-behavior-group mapping is consumed by Analysis Preprocessing. Canonical behavior groups are `PRACTICAL`, `EXPERIENCE`, `RELATIONSHIP`, `REGULAR`, `SAVINGS`, and `OTHER`. If the mapping is stored in the database, it must be versioned or exported with a versioned analysis configuration so repeated analysis remains deterministic.
 
 Status: not implemented.

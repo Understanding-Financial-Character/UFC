@@ -456,23 +456,94 @@ Response: Add Group Member response object.
 - Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `INTERNAL_ERROR`
 - Required headers: `Authorization: Bearer <access_token>`
 
-### Upload Transactions
+### List Categories
 
-- Method and path: `POST /groups/{groupId}/transactions:upload`
+- Method and path: `GET /categories`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: Public category metadata
+- Success status: `200 OK`
+- Error codes: `INTERNAL_ERROR`
+
+Response:
+
+```json
+[
+  {
+    "schema_version": "1.0",
+    "category_id": "uuid",
+    "code": "FOOD",
+    "name": "식비",
+    "behavior_group": "PRACTICAL",
+    "display_order": 1,
+    "is_active": true
+  }
+]
+```
+
+Field rules:
+
+- Categories are seeded by migration `20260730_0004` from immutable revision data at `backend/migrations/data/20260730_0004_categories.csv`.
+- `behavior_group` is stored for later analysis feature calculation, but BE Phase 4 does not calculate features or MBTI scores.
+- `behavior_group`: enum, one of `PRACTICAL`, `EXPERIENCE`, `RELATIONSHIP`, `REGULAR`, `SAVINGS`, `OTHER`.
+
+### List Mock Scenarios
+
+- Method and path: `GET /mock-scenarios`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: Public mock metadata
+- Success status: `200 OK`
+- Error codes: `INTERNAL_ERROR`
+
+Response:
+
+```json
+[
+  {
+    "schema_version": "1.0",
+    "scenario_id": "mock-v2",
+    "name": "Mock Transactions V2",
+    "description": "Synthetic group-account transactions for BE Phase 4.",
+    "transaction_count": 358
+  }
+]
+```
+
+### Apply Mock Scenario
+
+- Method and path: `POST /groups/{groupId}/mock-scenarios/{scenarioId}/apply`
 - Sync or async: Sync for MVP validation and accepted record persistence
-- Idempotency: Recommended via client-supplied upload checksum in backend phase
-- Resource owner: Authorized group member
+- Idempotency: `source_row_key` prevents duplicate application within the same group
+- Resource owner: Group owner
 - Success status: `201 Created`
-- Error codes: `VALIDATION_ERROR`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
+- Error codes: `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
+
+Response: Transaction Import response.
+
+Field rules:
+
+- Supported `scenarioId`: `mock-v2`.
+- Mock source rows are loaded from `backend/app/modules/transactions/fixtures/transactions_mock_v2.csv`.
+- Mock rows are projected into the target group; when source member ids do not exist in that group, active target members are assigned deterministically by order.
+- Mock data is synthetic only and must not contain account numbers, card numbers, or bank authentication data.
+
+### Import Transactions
+
+- Method and path: `POST /groups/{groupId}/transactions/import`
+- Sync or async: Sync for MVP validation and accepted record persistence
+- Idempotency: `source_row_key` prevents duplicate import within the same group
+- Resource owner: Group owner
+- Success status: `201 Created`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `CONFLICT`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
 
 Request:
 
 ```json
 {
-  "schema_version": "1.0",
-  "source_type": "MOCK_SCENARIO",
-  "scenario_id": "friends-travel-001",
-  "transactions": []
+  "csv_text": "group_id,member_id,category_id,transaction_at,..."
 }
 ```
 
@@ -482,20 +553,113 @@ Response:
 {
   "schema_version": "1.0",
   "group_id": "uuid",
-  "upload_id": "uuid",
-  "source_type": "MOCK_SCENARIO",
-  "accepted_count": 42,
-  "rejected_count": 0,
-  "status": "COMPLETED"
+  "source_type": "CSV_UPLOAD",
+  "accepted_count": 1,
+  "rejected_count": 1,
+  "status": "PARTIALLY_COMPLETED",
+  "rows": [
+    {
+      "row_number": 2,
+      "source_row_key": "SCN-01-TXN-0001",
+      "status": "ACCEPTED",
+      "transaction_id": "uuid",
+      "errors": []
+    },
+    {
+      "row_number": 3,
+      "source_row_key": "bad-row",
+      "status": "REJECTED",
+      "transaction_id": null,
+      "errors": [
+        {
+          "field": "amount",
+          "code": "AMOUNT_NOT_POSITIVE",
+          "message": "amount must be positive."
+        }
+      ]
+    }
+  ]
 }
 ```
 
 Field rules:
 
-- `source_type`: enum, required, one of `MOCK_SCENARIO`, `CSV_UPLOAD`, `MANUAL_ENTRY`
-- `scenario_id`: string, optional, required when `source_type` is `MOCK_SCENARIO`
-- `transactions`: array, optional for mock scenario, required for upload or manual entry
-- `status`: enum, required, one of `COMPLETED`, `PARTIALLY_COMPLETED`, `FAILED`
+- Accepted CSV fields: `group_id`, `member_id`, `category_id`, `transaction_at`, `transaction_type`, `amount`, `merchant_name`, `description`, `is_shared_expense`, `is_planned`, `is_recurring`, `is_excluded`, `exclusion_reason`, `source_row_key`.
+- `group_id`: optional. When present, it must be a valid UUID and must match the `{groupId}` path parameter. When blank or omitted, the import uses the path group.
+- `transaction_type`: enum, required, one of `DEPOSIT`, `WITHDRAWAL`.
+- `amount`: positive decimal. Direction is represented only by `transaction_type`, not negative amounts.
+- `amount`: must not exceed `999999999999.99`, matching the `Numeric(14, 2)` storage contract.
+- All transaction amounts in the MVP CSV contract are interpreted as KRW. The CSV contract does not accept a currency field.
+- `is_shared_expense`, `is_planned`, and `is_recurring`: nullable booleans. Blank cells are persisted as `null`, not `false`.
+- `is_excluded`: boolean, defaults to false when the CSV cell is blank.
+- `exclusion_reason`: required when `is_excluded` is true.
+- `member_id`: optional; when present it must reference an `ACTIVE` member in the target group.
+- `category_id`: optional; when present it must reference an active category.
+- `source_row_key`: optional, but when present it must be unique within the same group.
+- `member_id` and `category_id`: when present, must be valid UUID strings.
+- `transaction_at`: must include a timezone offset, for example `2026-07-01T10:00:00+09:00` or `2026-07-01T01:00:00Z`.
+- Text fields that exceed their contract length are rejected with row-level validation errors; values are not silently truncated.
+- CSV headers containing account, card, bank auth, or token-like fields are rejected. The backend must not log full CSV raw text.
+- `status`: enum, one of `COMPLETED`, `PARTIALLY_COMPLETED`, `FAILED`.
+
+### List Transactions
+
+- Method and path: `GET /groups/{groupId}/transactions`
+- Sync or async: Sync
+- Idempotency: Safe read
+- Resource owner: Group owner
+- Success status: `200 OK`
+- Error codes: `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
+
+Response:
+
+```json
+[
+  {
+    "schema_version": "1.0",
+    "transaction_id": "uuid",
+    "group_id": "uuid",
+    "member_id": "uuid",
+    "category_id": "uuid",
+    "transaction_at": "2026-06-01T23:05:00+09:00",
+    "transaction_type": "WITHDRAWAL",
+    "amount": "31400.00",
+    "merchant_name": "예술의전당",
+    "description": null,
+    "is_shared_expense": true,
+    "is_planned": true,
+    "is_recurring": false,
+    "is_excluded": false,
+    "exclusion_reason": null,
+    "source_type": "CSV_UPLOAD",
+    "source_row_key": "SCN-01-TXN-0001",
+    "created_at": "2026-07-30T00:00:00Z"
+  }
+]
+```
+
+### Update Transaction
+
+- Method and path: `PATCH /groups/{groupId}/transactions/{transactionId}`
+- Sync or async: Sync
+- Idempotency: Not required for MVP
+- Resource owner: Group owner
+- Success status: `200 OK`
+- Error codes: `VALIDATION_ERROR`, `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
+
+Request fields are optional individually, but at least one field must be provided.
+
+### Delete Transaction
+
+- Method and path: `DELETE /groups/{groupId}/transactions/{transactionId}`
+- Sync or async: Sync
+- Idempotency: Not required for MVP
+- Resource owner: Group owner
+- Success status: `204 No Content`
+- Error codes: `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `INTERNAL_ERROR`
+- Required headers: `Authorization: Bearer <access_token>`
 
 ### Create Analysis
 

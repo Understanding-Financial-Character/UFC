@@ -19,3 +19,4 @@
 ## Backend test warnings
 
 - [Backend TestClient httpx Deprecation Warning](backend-testclient-httpx-warning.md)
+- [Docker Ruff EXE002 on Windows Mounts](docker-ruff-exe002-windows.md)
