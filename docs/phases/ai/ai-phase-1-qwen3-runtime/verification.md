@@ -1,7 +1,10 @@
 # AI Phase 1 - Qwen3 Runtime Verification
 
 ## Verified Commit
-`fac064b` feat: add qwen3 ollama report runtime
+Verified commits:
+
+- `fac064b` feat: add qwen3 ollama report runtime
+- `5bd791e` fix: harden ollama runtime error handling
 ## Verified At
 2026-07-30 10:17:04 KST
 ## Environment

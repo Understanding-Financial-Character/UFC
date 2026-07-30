@@ -23,6 +23,7 @@ None expected.
 Not assigned.
 ## Commits
 - `fac064b` feat: add qwen3 ollama report runtime
+- `5bd791e` fix: harden ollama runtime error handling
 ## Blockers
 None.
 ## Handover Notes
