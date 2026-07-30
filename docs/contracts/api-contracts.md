@@ -747,25 +747,41 @@ Response:
   "analysis_id": "uuid",
   "report_id": "uuid",
   "status": "COMPLETED",
-  "summary": "최근 3개월 동안 이 모임은 새로운 장소와 공동 경험 소비가 두드러졌습니다.",
-  "sections": [
-    {
-      "title": "주요 특징",
-      "body": "주말 외식과 여행 카테고리 비중이 높았습니다."
-    }
-  ],
-  "limitations": ["거래 건수가 적어 잠정 결과입니다."]
+  "prompt_version": "grounded-report-v1",
+  "model": "qwen3:4b",
+  "fallback_used": false,
+  "repair_attempted": false,
+  "latency_ms": 1240,
+  "validation_result": {
+    "schema": true,
+    "evidenceNumbers": true,
+    "unsupportedClaims": false,
+    "unsupportedClaimsCheck": "LIMITED",
+    "diagnosisLanguage": true,
+    "financialRecommendation": true
+  },
+  "report": {
+    "headline": "ENFP 소비 리포트",
+    "summary": "제공된 근거를 바탕으로 한 요약입니다.",
+    "strengths": ["근거 기반 장점"],
+    "commonPoints": ["구성원 MBTI와 소비 MBTI의 공통점"],
+    "differences": ["구성원 MBTI와 소비 MBTI의 차이점"],
+    "observationPoints": ["관찰 포인트"],
+    "conversationQuestions": ["대화 질문"],
+    "disclaimer": "실제 성격 진단이나 금융 진단이 아닙니다."
+  }
 }
 ```
 
 Field rules:
 
-- `status`: enum, required, one of `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`
-- `summary`: string, required when `status` is `COMPLETED`
-- `sections`: array, required when `status` is `COMPLETED`
-- `limitations`: array of strings, required, may be empty
+- `status`: enum, required, one of `COMPLETED`, `FALLBACK_COMPLETED`, `FAILED`
+- `report`: object, required when `status` is `COMPLETED` or `FALLBACK_COMPLETED`
+- `report` must follow `grounded-ai-report-v1` from `docs/contracts/analysis-output-contract.md`
+- `fallback_used`: `true` only when template fallback produced the saved report
+- `validation_result`: AI Phase 2 grounding validation metadata
 
-`PENDING`, `RUNNING`, `COMPLETED`, and `FAILED` report states are returned as `200 OK` lookup responses when the report resource exists. Temporary LLM service failure uses `AI_REPORT_UNAVAILABLE`.
+`COMPLETED`, `FALLBACK_COMPLETED`, and `FAILED` report states are returned as `200 OK` lookup responses when the report resource exists. Qwen3 failure does not invalidate deterministic analysis output. A saved fallback report uses `FALLBACK_COMPLETED`; a missing or unavailable report resource may use `AI_REPORT_UNAVAILABLE`.
 
 ## Versioning Rules
 
