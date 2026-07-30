@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { ProtectedRoute } from "../../components/guards/ProtectedRoute";
 import { RoleGuard } from "../../components/guards/RoleGuard";
+import { DesignPreviewPage } from "../../pages/DesignPreviewPage";
 import { ForbiddenPage } from "../../pages/ForbiddenPage";
 import { HomePage } from "../../pages/HomePage";
 import { LoginPage } from "../../pages/LoginPage";
@@ -11,7 +12,11 @@ import { SignupPage } from "../../pages/SignupPage";
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/app" replace />,
+    element: <Navigate to="/preview" replace />,
+  },
+  {
+    path: "/preview",
+    element: <DesignPreviewPage />,
   },
   {
     path: "/login",
