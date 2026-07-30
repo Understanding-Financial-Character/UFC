@@ -112,7 +112,7 @@ def test_analysis_run_lifecycle_separates_execution_and_result_status(db: Sessio
         snapshot_hash=SNAPSHOT_HASH,
     )
 
-    assert analysis_run.status == AnalysisRunStatus.PENDING
+    assert analysis_run.status == AnalysisRunStatus.READY
     assert analysis_run.result_status is None
 
     completed = repository.complete_analysis_run(

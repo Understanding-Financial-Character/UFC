@@ -4,7 +4,7 @@ import enum
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     JSON,
@@ -29,6 +29,9 @@ from app.analysis.contracts import (
 )
 from app.db.base import Base
 
+if TYPE_CHECKING:
+    from app.modules.groups.models import Group
+
 JSON_DOCUMENT = JSON().with_variant(JSONB(), "postgresql")
 
 
@@ -37,6 +40,11 @@ def utc_now() -> datetime:
 
 
 class AnalysisRunStatus(str, enum.Enum):
+    READY = "READY"
+    ANALYZING = "ANALYZING"
+    REPORT_GENERATING = "REPORT_GENERATING"
+    PARTIALLY_COMPLETED = "PARTIALLY_COMPLETED"
+    COMPLETED_WITH_FALLBACK = "COMPLETED_WITH_FALLBACK"
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
@@ -84,8 +92,10 @@ class AnalysisRun(Base):
             name="ck_analysis_runs_analysis_version_nonblank",
         ),
         CheckConstraint(
-            "((status = 'COMPLETED' AND result_status IS NOT NULL) "
-            "OR (status IN ('PENDING', 'RUNNING', 'FAILED') AND result_status IS NULL))",
+            "((status IN ('COMPLETED', 'PARTIALLY_COMPLETED', 'COMPLETED_WITH_FALLBACK') "
+            "AND result_status IS NOT NULL) "
+            "OR (status IN ('READY', 'ANALYZING', 'REPORT_GENERATING', "
+            "'PENDING', 'RUNNING', 'FAILED') AND result_status IS NULL))",
             name="ck_analysis_runs_result_status_lifecycle",
         ),
     )
@@ -122,6 +132,7 @@ class AnalysisRun(Base):
     behavior_metrics: Mapped[list[BehaviorMetric]] = relationship(
         back_populates="analysis_run", cascade="all, delete-orphan"
     )
+    group: Mapped[Group] = relationship()
     consumption_mbti_result: Mapped[ConsumptionMBTIResult | None] = relationship(
         back_populates="analysis_run", cascade="all, delete-orphan", uselist=False
     )

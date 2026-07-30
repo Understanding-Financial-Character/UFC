@@ -234,15 +234,15 @@ Qwen3 must not recalculate or change the supplied spending MBTI.
 
 ## Persistence Contract
 
-BE Phase 5 persists deterministic analysis and AI report records in four tables:
+BE Phase 5 persists deterministic analysis and AI report records in four tables. BE Phase 6 orchestrates writes to those tables:
 
 - `analysis_runs`: execution status, `result_status`, provisional reasons, analysis period, source marker, schema/analysis version, and snapshot hash.
 - `behavior_metrics`: AN Phase 2 `BehaviorFeatureResult` rows with `feature_code`, `status`, `raw_value`, `normalized_score`, `unit`, `sample_count`, evidence, schema/calculation version, snapshot hash, and `metric_metadata.axisContributions`.
 - `consumption_mbti_results`: nullable `mbti_type`, duplicated `result_status`, axis scores, fixed E/N/F/P score directions, confidence, coverage, limitations, schema/rule version, and snapshot hash.
 - `ai_reports`: report status, generated content when available, failure/fallback fields, model, prompt version, repair status, validation result, schema version, and snapshot hash.
 
-`analysis_runs.status` is execution state and must not be mixed with `analysis_runs.result_status`. `PENDING` and `RUNNING` rows keep `result_status=NULL`; completed runs set it after preprocessing, feature calculation, and rule execution determine result quality. `result_status=INSUFFICIENT_DATA` must keep `consumption_mbti_results.mbti_type` as `NULL`.
+`analysis_runs.status` is execution state and must not be mixed with `analysis_runs.result_status`. `READY`, `ANALYZING`, `REPORT_GENERATING`, `PENDING`, and `RUNNING` rows keep `result_status=NULL`. Terminal successful states `COMPLETED`, `PARTIALLY_COMPLETED`, and `COMPLETED_WITH_FALLBACK` set `result_status` after preprocessing, feature calculation, and rule execution determine result quality. `FAILED` rows keep `result_status=NULL`. `result_status=INSUFFICIENT_DATA` must keep `consumption_mbti_results.mbti_type` as `NULL`.
 
 Child persistence rows inherit `snapshot_hash` from `analysis_runs`; callers must not provide divergent child snapshot hashes.
 
-AI Phase 2 does not connect analysis orchestration or `ai_reports` persistence. BE Phase 5 adds persistence only; orchestration remains BE Phase 6.
+AI report fallback or failure does not change deterministic rule results. A fallback report uses `COMPLETED_WITH_FALLBACK`; a report failure after deterministic result persistence uses `PARTIALLY_COMPLETED`.

@@ -1,7 +1,7 @@
 # BE Phase 6 - Analysis Orchestration
 
 ## Status
-NOT_STARTED
+IMPLEMENTED
 ## Goal
 Coordinate transaction lookup, analysis execution, rule results, persistence, and AI report triggering.
 ## Why
@@ -21,11 +21,11 @@ No new tables beyond BE Phase 5 unless explicitly approved.
 ## Security Considerations
 Owner checks on analysis and report resources.
 ## Implementation Tasks
-Define orchestration services and tests.
+Implemented orchestration services, analysis APIs, state transition persistence, retry flow, and tests.
 ## Test Scenarios
 Success, insufficient data, AI failure, owner denial.
 ## Completion Criteria
-End-to-end backend analysis path verified.
+End-to-end backend analysis path verified with synchronous MVP execution.
 ## Branch
 `feat/be-phase-6-analysis-orchestration`
 ## Dependencies

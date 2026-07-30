@@ -134,9 +134,14 @@ Owns analysis execution lifecycle and result quality:
 
 `status` values:
 
+- `READY`
+- `ANALYZING`
+- `REPORT_GENERATING`
 - `PENDING`
 - `RUNNING`
 - `COMPLETED`
+- `PARTIALLY_COMPLETED`
+- `COMPLETED_WITH_FALLBACK`
 - `FAILED`
 
 `result_status` values:
@@ -145,9 +150,9 @@ Owns analysis execution lifecycle and result quality:
 - `PROVISIONAL`
 - `INSUFFICIENT_DATA`
 
-`result_status` is nullable while a run is `PENDING` or `RUNNING`. `COMPLETED` runs require a non-null `result_status`; `FAILED` runs may keep it null. `STANDARD` runs must not store provisional reasons, while `PROVISIONAL` and `INSUFFICIENT_DATA` runs require at least one provisional reason.
+`result_status` is nullable while a run is `READY`, `ANALYZING`, `REPORT_GENERATING`, `PENDING`, or `RUNNING`. Successful terminal states `COMPLETED`, `PARTIALLY_COMPLETED`, and `COMPLETED_WITH_FALLBACK` require a non-null `result_status`; `FAILED` runs keep it null. `STANDARD` runs must not store provisional reasons, while `PROVISIONAL` and `INSUFFICIENT_DATA` runs require at least one provisional reason.
 
-Status: implemented in BE Phase 5.
+Status: implemented in BE Phase 5 and extended in BE Phase 6.
 
 ### behavior_metrics
 
