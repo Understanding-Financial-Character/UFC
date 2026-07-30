@@ -6,7 +6,7 @@ Defines deterministic analysis outputs consumed by backend persistence, frontend
 
 ## Status
 
-Behavior feature output is implemented by AN Phase 2. Axis scoring, final consumption MBTI, and grounded AI report output remain target contracts for later phases.
+Behavior feature output is implemented by AN Phase 2. `consumption-mbti-v1` is implemented by AN Phase 3. Grounded AI report output remains a separate AI contract.
 
 ## Schema Versions
 
@@ -33,11 +33,14 @@ Behavior feature output is implemented by AN Phase 2. Axis scoring, final consum
   ],
   "policyVersion": "behavior-policy-v1",
   "categoryMappingVersion": "category-map-v2",
-  "analysisTimezone": "Asia/Seoul"
+  "analysisTimezone": "Asia/Seoul",
+  "sourceType": "CSV",
+  "isSynthetic": false
 }
 ```
 
 Behavior features include calculation evidence and minimum-data handling. Missing inputs produce `status=UNAVAILABLE` with `rawValue=null` and `normalizedScore=null`, not zero.
+`sourceType` is the canonical provenance value. `isSynthetic` is a derived marker on the behavior metrics result, and the rule engine treats `MOCK` and `INTERNAL_TEST` sources as synthetic even if a caller supplies a contradictory boolean.
 
 Feature units:
 
@@ -90,6 +93,7 @@ Axis scoring uses only available features and renormalizes remaining weights.
 ```json
 {
   "schemaVersion": "consumption-mbti-v1",
+  "ruleVersion": "consumption-mbti-v1",
   "mbtiType": "ENFP",
   "axisScores": {
     "EI": 0.62,
@@ -97,17 +101,59 @@ Axis scoring uses only available features and renormalizes remaining weights.
     "TF": 0.55,
     "JP": 0.71
   },
+  "axisCoverage": {
+    "EI": 1.0,
+    "SN": 0.75,
+    "TF": 0.9,
+    "JP": 0.8
+  },
+  "axisMargins": {
+    "EI": 12.0,
+    "SN": 8.0,
+    "TF": 5.0,
+    "JP": 21.0
+  },
   "confidence": {
     "level": "LOW",
     "score": 0.42
   },
   "resultStatus": "PROVISIONAL",
-  "provisionalReasons": ["INSUFFICIENT_TRANSACTION_COUNT"],
-  "limitations": ["거래 건수가 적어 잠정 결과입니다."]
+  "provisionalReasons": ["SN_LOW_AXIS_COVERAGE"],
+  "primaryEvidence": [
+    {
+      "axis": "SN",
+      "featureCode": "CATEGORY_DIVERSITY_SCORE",
+      "direction": "HIGH",
+      "weight": 0.25,
+      "normalizedWeight": 0.3333,
+      "featureScore": 0.8,
+      "contributionScore": 0.8,
+      "contribution": 0.2667,
+      "highPoleSupport": 0.8,
+      "lowPoleSupport": 0.2,
+      "signedContribution": 0.2,
+      "decidedPoleContribution": 0.2667,
+      "evidence": ["Category diversity score 0.8000 from 4 category amount buckets."]
+    }
+  ]
 }
 ```
 
 `mbtiType` is nullable when data is insufficient.
+
+Rule-engine behavior:
+
+- Each axis is scored independently.
+- Higher axis scores mean E, N, F, and P respectively.
+- Unavailable features are excluded from that axis and remaining feature weights are renormalized.
+- Axis coverage is the configured available weight divided by total configured axis weight.
+- Coverage below `0.50` defers that axis and prevents final `mbtiType` generation.
+- Coverage from `0.50` to below `0.70` keeps the axis decision but marks the result provisional.
+- Exact score ties at `0.50` defer the axis, add `AXIS_SCORE_TIE`, and prevent final `mbtiType` generation.
+- Non-zero margin below `5.0` points keeps the axis decision but adds `LOW_AXIS_SCORE_MARGIN`.
+- Mock or generated data adds `SYNTHETIC_DATA`.
+- Primary evidence is axis-specific, limited to the top contributing features per axis, so the same feature can contribute separately to multiple axes. Full contribution traces remain available on each axis result.
+- Feature contributions expose high-pole support, low-pole support, signed contribution, and decided-pole contribution so low-pole decisions retain meaningful evidence.
 
 `resultStatus` values:
 

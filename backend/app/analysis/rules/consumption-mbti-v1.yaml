@@ -1,0 +1,58 @@
+{
+  "rule_version": "consumption-mbti-v1",
+  "schema_version": "consumption-mbti-v1",
+  "requires": {
+    "behavior_feature_schema_version": "behavior-features-v1",
+    "behavior_feature_policy_version": "behavior-policy-v1",
+    "category_mapping_version": "category-map-v2"
+  },
+  "min_decision_coverage": 0.5,
+  "standard_coverage": 0.7,
+  "low_margin_threshold": 5.0,
+  "axes": {
+    "EI": {
+      "low_pole": "I",
+      "high_pole": "E",
+      "features": [
+        {"feature_code": "SHARED_EXPENSE_RATIO", "direction": "HIGH", "weight": 0.25},
+        {"feature_code": "WEEKEND_SOCIAL_SPENDING_RATIO", "direction": "HIGH", "weight": 0.20},
+        {"feature_code": "NIGHT_SPENDING_RATIO", "direction": "HIGH", "weight": 0.15},
+        {"feature_code": "TRAVEL_EXPERIENCE_RATIO", "direction": "HIGH", "weight": 0.20},
+        {"feature_code": "PRACTICAL_SPENDING_RATIO", "direction": "LOW", "weight": 0.20}
+      ]
+    },
+    "SN": {
+      "low_pole": "S",
+      "high_pole": "N",
+      "features": [
+        {"feature_code": "CATEGORY_CONCENTRATION", "direction": "LOW", "weight": 0.25},
+        {"feature_code": "CATEGORY_DIVERSITY_SCORE", "direction": "HIGH", "weight": 0.25},
+        {"feature_code": "EXPERIENCE_SPENDING_RATIO", "direction": "HIGH", "weight": 0.25},
+        {"feature_code": "TRAVEL_EXPERIENCE_RATIO", "direction": "HIGH", "weight": 0.15},
+        {"feature_code": "PRACTICAL_SPENDING_RATIO", "direction": "LOW", "weight": 0.10}
+      ]
+    },
+    "TF": {
+      "low_pole": "T",
+      "high_pole": "F",
+      "features": [
+        {"feature_code": "SAVING_EDUCATION_RATIO", "direction": "LOW", "weight": 0.25},
+        {"feature_code": "RELATIONSHIP_SPENDING_RATIO", "direction": "HIGH", "weight": 0.25},
+        {"feature_code": "SHARED_EXPERIENCE_RATIO", "direction": "HIGH", "weight": 0.20},
+        {"feature_code": "GIFT_ANNIVERSARY_RATIO", "direction": "HIGH", "weight": 0.20},
+        {"feature_code": "SHARED_EXPENSE_RATIO", "direction": "HIGH", "weight": 0.10}
+      ]
+    },
+    "JP": {
+      "low_pole": "J",
+      "high_pole": "P",
+      "features": [
+        {"feature_code": "PLANNED_EXPENSE_RATIO", "direction": "LOW", "weight": 0.25},
+        {"feature_code": "RECURRING_EXPENSE_RATIO", "direction": "LOW", "weight": 0.20},
+        {"feature_code": "REPEAT_MERCHANT_RATIO", "direction": "HIGH", "weight": 0.15},
+        {"feature_code": "WEEKLY_EXPENSE_VOLATILITY", "direction": "HIGH", "weight": 0.25},
+        {"feature_code": "OUTLIER_RATIO", "direction": "HIGH", "weight": 0.15}
+      ]
+    }
+  }
+}

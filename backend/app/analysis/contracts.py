@@ -9,6 +9,7 @@ ANALYSIS_INPUT_SCHEMA_VERSION = "analysis-input-v1"
 BEHAVIOR_FEATURE_SCHEMA_VERSION = "behavior-features-v1"
 BEHAVIOR_FEATURE_POLICY_VERSION = "behavior-policy-v1"
 CATEGORY_MAPPING_VERSION = "category-map-v2"
+CONSUMPTION_MBTI_SCHEMA_VERSION = "consumption-mbti-v1"
 
 
 class GroupPurposeType(str, enum.Enum):
@@ -26,6 +27,14 @@ class AnalysisSourceType(str, enum.Enum):
     MOCK = "MOCK"
     MANUAL = "MANUAL"
     INTERNAL_TEST = "INTERNAL_TEST"
+
+
+SYNTHETIC_SOURCE_TYPES = frozenset(
+    {
+        AnalysisSourceType.MOCK,
+        AnalysisSourceType.INTERNAL_TEST,
+    }
+)
 
 
 class AnalysisTransactionType(str, enum.Enum):
@@ -90,6 +99,29 @@ class BehaviorFeatureUnit(str, enum.Enum):
 class BehaviorFeatureStatus(str, enum.Enum):
     AVAILABLE = "AVAILABLE"
     UNAVAILABLE = "UNAVAILABLE"
+
+
+class RuleDirection(str, enum.Enum):
+    HIGH = "HIGH"
+    LOW = "LOW"
+
+
+class ConsumptionAxis(str, enum.Enum):
+    EI = "EI"
+    SN = "SN"
+    TF = "TF"
+    JP = "JP"
+
+
+class AxisDecisionStatus(str, enum.Enum):
+    DECIDED = "DECIDED"
+    DEFERRED = "DEFERRED"
+
+
+class ConfidenceLevel(str, enum.Enum):
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
 
 
 @dataclass(frozen=True)
@@ -212,6 +244,7 @@ class BehaviorMetricsInput:
     observation_started_at: datetime
     observation_ended_at: datetime
     timezone: str = "Asia/Seoul"
+    source_type: AnalysisSourceType = AnalysisSourceType.CSV
 
 
 @dataclass(frozen=True)
@@ -220,4 +253,63 @@ class BehaviorMetricsResult:
     policy_version: str
     category_mapping_version: str
     analysis_timezone: str
+    source_type: AnalysisSourceType
+    is_synthetic: bool
     features: tuple[BehaviorFeatureResult, ...]
+
+
+@dataclass(frozen=True)
+class RuleEngineInput:
+    behavior_metrics: BehaviorMetricsResult
+
+
+@dataclass(frozen=True)
+class AxisContribution:
+    axis: ConsumptionAxis
+    feature_code: BehaviorFeatureCode
+    direction: RuleDirection
+    weight: float
+    normalized_weight: float
+    feature_score: float
+    contribution_score: float
+    contribution: float
+    high_pole_support: float
+    low_pole_support: float
+    signed_contribution: float
+    decided_pole_contribution: float
+    evidence: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class AxisScoreResult:
+    axis: ConsumptionAxis
+    score: float | None
+    coverage: float
+    margin: float | None
+    low_pole: str
+    high_pole: str
+    decided_pole: str | None
+    status: AxisDecisionStatus
+    provisional_reasons: tuple[str, ...]
+    contributions: tuple[AxisContribution, ...]
+
+
+@dataclass(frozen=True)
+class Confidence:
+    level: ConfidenceLevel
+    score: float
+
+
+@dataclass(frozen=True)
+class ConsumptionMbtiResult:
+    schema_version: str
+    rule_version: str
+    axis_scores: dict[str, float | None]
+    axis_coverage: dict[str, float]
+    axis_margins: dict[str, float | None]
+    confidence: Confidence
+    mbti_type: str | None
+    primary_evidence: tuple[AxisContribution, ...]
+    result_status: ResultStatus
+    provisional_reasons: tuple[str, ...]
+    axis_results: tuple[AxisScoreResult, ...]
