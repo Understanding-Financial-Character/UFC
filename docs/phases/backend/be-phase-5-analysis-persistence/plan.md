@@ -1,7 +1,7 @@
 # BE Phase 5 - Analysis Persistence
 
 ## Status
-NOT_STARTED
+VERIFYING
 ## Goal
 Persist analysis runs, behavior metrics, rule results, and AI report records.
 ## Why
@@ -17,13 +17,13 @@ Metric calculation, rule evaluation, Qwen generation.
 ## Contracts
 Analysis persistence contracts.
 ## Data Changes
-Future migrations for analysis result tables.
+Adds `analysis_runs`, `behavior_metrics`, `consumption_mbti_results`, and `ai_reports`.
 ## Security Considerations
 Report text and sensitive source references must be minimized and masked.
 ## Implementation Tasks
-Define models, migrations, repository/service layer, tests.
+Define models, migrations, repository layer, and DB tests.
 ## Test Scenarios
-Status/result status separation, nullable MBTI, AI report status.
+Status/result status separation, nullable MBTI, axis contribution metadata, AI report status, version and snapshot hash persistence.
 ## Completion Criteria
 Persistence and verification complete.
 ## Branch

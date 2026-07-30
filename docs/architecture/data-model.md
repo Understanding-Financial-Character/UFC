@@ -127,6 +127,17 @@ Owns analysis execution lifecycle and result quality:
 - `analysis_period_ended_at`: inclusive end of observation window
 - `source_type`: run-level source marker
 - `is_synthetic`: run-level synthetic marker
+- `input_schema_version`: analysis input contract version
+- `analysis_version`: backend analysis pipeline version
+- `snapshot_hash`: source snapshot hash used for reproducibility
+- `error_code`, `error_message`: execution failure details when applicable
+
+`status` values:
+
+- `PENDING`
+- `RUNNING`
+- `COMPLETED`
+- `FAILED`
 
 `result_status` values:
 
@@ -134,11 +145,13 @@ Owns analysis execution lifecycle and result quality:
 - `PROVISIONAL`
 - `INSUFFICIENT_DATA`
 
-Status: not implemented.
+Status: implemented in BE Phase 5.
 
 ### behavior_metrics
 
-Owns calculated feature and metric outputs. A single flat `contribution_weight` is not enough for axis contribution. Axis contribution data must be stored in a structured shape:
+Owns calculated feature and metric outputs. Each metric row stores `metric_code`, optional `metric_value`, availability state, evidence, schema/calculation version, and snapshot hash.
+
+A single flat `contribution_weight` is not enough for axis contribution. Axis contribution data must be stored under `metric_metadata.axisContributions`:
 
 ```json
 {
@@ -153,7 +166,9 @@ Owns calculated feature and metric outputs. A single flat `contribution_weight` 
 }
 ```
 
-Status: not implemented on `main`. PR #6 targets this area and is tracked as Analysis / AN Phase 2.
+Unavailable metrics keep `metric_value` as `NULL` and record an `unavailable_reason`. `NULL` metric values are not interpreted as zero.
+
+Status: persistence implemented in BE Phase 5. Metric calculation remains Analysis work.
 
 ### consumption_mbti_results
 
@@ -168,7 +183,9 @@ Axis score direction is fixed:
 
 These directions are also recorded in `backend/app/analysis/constants.py`.
 
-Status: not implemented.
+The table stores axis scores, confidence, coverage, limitations, result metadata, schema/rule version, snapshot hash, and the fixed axis score direction metadata. Repository validation rejects non-null `mbti_type` when the owning run has `result_status=INSUFFICIENT_DATA`.
+
+Status: persistence implemented in BE Phase 5. Rule calculation remains Analysis work.
 
 ### ai_reports
 
@@ -182,4 +199,6 @@ Report status values:
 
 The table must track fallback usage, model name, prompt version, and validation result.
 
-Status: not implemented.
+The table stores `report_content`, `fallback_used`, `fallback_reason`, `failure_reason`, `schema_version`, and `snapshot_hash`. `COMPLETED` and `FALLBACK_COMPLETED` require report content; `FAILED` requires a failure reason.
+
+Status: persistence implemented in BE Phase 5. Qwen execution remains AI/orchestration work.
