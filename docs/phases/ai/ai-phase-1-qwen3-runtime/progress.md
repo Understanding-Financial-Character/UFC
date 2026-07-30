@@ -20,7 +20,7 @@ None expected.
 ## Linked PR
 Not assigned.
 ## Commits
-Pending.
+- `fac064b` feat: add qwen3 ollama report runtime
 ## Blockers
 None.
 ## Handover Notes
