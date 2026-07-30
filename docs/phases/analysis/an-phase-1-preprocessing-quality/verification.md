@@ -1,7 +1,7 @@
 # AN Phase 1 - Preprocessing and Data Quality Verification
 
 ## Verified Commit
-Pending P1 review-fix commit.
+`a62a1db`
 ## Verified At
 2026-07-30
 ## Environment
@@ -21,7 +21,7 @@ Docker Compose dev backend on PostgreSQL 16.
 - AN Phase 1 tests: 7 passed.
 - Full backend tests: 57 passed, 1 upstream deprecation warning from FastAPI/Starlette TestClient.
 - Ruff: passed.
-- CI-style committed diff whitespace check: pending final commit.
+- CI-style committed diff whitespace check: passed.
 - Working tree diff whitespace check: passed.
 ## API Evidence
 Not applicable.
