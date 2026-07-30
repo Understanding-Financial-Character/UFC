@@ -449,7 +449,11 @@ function ResultContent({ analysis }: { analysis: AnalysisResponse }) {
           <article key={metric.feature_code}>
             <small>{metric.feature_code}</small>
             <strong>{formatRatio(metric.normalized_score)}</strong>
-            <p>{metric.evidence[0] ?? "계산 가능한 근거가 저장되어 있습니다."}</p>
+            <span className="metric-detail">
+              표본 {formatInteger(metric.sample_count)}건
+              {metric.raw_value === null ? "" : ` · 원값 ${formatMetricValue(metric.raw_value, metric.unit)}`}
+            </span>
+            <p>{formatEvidenceText(metric.evidence[0] ?? "계산 가능한 근거가 저장되어 있습니다.")}</p>
           </article>
         ))}
       </section>
@@ -592,7 +596,7 @@ function formatWon(value: string): string {
   if (!Number.isFinite(numeric)) {
     return value;
   }
-  return `${numeric.toLocaleString("ko-KR")}원`;
+  return `${formatInteger(numeric)}원`;
 }
 
 function formatRatio(value: number | string | null | undefined): string {
@@ -603,7 +607,41 @@ function formatRatio(value: number | string | null | undefined): string {
   if (!Number.isFinite(numeric)) {
     return String(value);
   }
-  return `${Math.round(numeric * 100)}%`;
+  return `${formatDecimal(numeric * 100, 1)}%`;
+}
+
+function formatMetricValue(value: number | string, unit: string): string {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return String(value);
+  }
+  if (unit.includes("RATIO")) {
+    return `${formatDecimal(numeric * 100, 1)}%`;
+  }
+  return formatDecimal(numeric, 2);
+}
+
+function formatEvidenceText(value: string): string {
+  return value.replace(/\b\d{4,}(?:\.\d+)?\b/g, (match) => {
+    const numeric = Number(match);
+    if (!Number.isFinite(numeric)) {
+      return match;
+    }
+    return numeric.toLocaleString("ko-KR", {
+      maximumFractionDigits: match.includes(".") ? 2 : 0,
+    });
+  });
+}
+
+function formatInteger(value: number): string {
+  return value.toLocaleString("ko-KR", { maximumFractionDigits: 0 });
+}
+
+function formatDecimal(value: number, maximumFractionDigits: number): string {
+  return value.toLocaleString("ko-KR", {
+    maximumFractionDigits,
+    minimumFractionDigits: 0,
+  });
 }
 
 function ratioNumber(value: number | string | null | undefined): number {
