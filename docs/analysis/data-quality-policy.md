@@ -32,11 +32,34 @@ For `is_shared_expense`, `is_planned`, and `is_recurring`:
 
 Sparse, short-period, missing-category, missing-merchant, or synthetic data may still produce partial evidence. It must be reflected in `result_status`, `provisional_reasons`, coverage, and limitations.
 
+AN Phase 1 uses these deterministic thresholds:
+
+- Minimum analyzable withdrawals: `10`
+- Minimum analysis period: `14` inclusive days
+- Minimum category coverage: `0.70`
+- Minimum merchant coverage: `0.50`
+
+Coverage is calculated over normalized, non-excluded `WITHDRAWAL` rows only.
+
+`analysis_eligible` is true when at least 10 normalized withdrawals exist across an observation window of at least 14 days. Low category or merchant coverage keeps the run provisional but does not by itself block preprocessing output.
+
 ## Transaction Type Policy
 
 `WITHDRAWAL` rows are the default candidates for spending behavior metrics.
 
 `DEPOSIT`, `REFUND`, `ADJUSTMENT`, and `TRANSFER` rows must be retained through preprocessing long enough to support auditability and quality decisions, but they are excluded from ordinary spending denominators unless a later metric explicitly opts into them.
+
+AN Phase 1 exclusion reasons:
+
+| transaction_type | reason |
+| --- | --- |
+| `DEPOSIT` | `DEPOSIT_EXCLUDED_FROM_SPENDING_ANALYSIS` |
+| `REFUND` | `REFUND_EXCLUDED_FROM_SPENDING_ANALYSIS` |
+| `TRANSFER` | `TRANSFER_EXCLUDED_FROM_SPENDING_ANALYSIS` |
+| `ADJUSTMENT` | `ADJUSTMENT_EXCLUDED_FROM_SPENDING_ANALYSIS` |
+| source `is_excluded=true` | `SOURCE_TRANSACTION_EXCLUDED` |
+
+`WITHDRAWAL` rows with source `is_excluded=false` remain analysis candidates.
 
 ## Canonical Enum Policy
 
@@ -47,3 +70,10 @@ Analysis input preserves DB canonical enum values:
 - `source_type`: `CSV`, `MOCK`, `MANUAL`, `INTERNAL_TEST`
 
 Analysis-only groupings must be derived into separate fields and versioned by preprocessing configuration.
+
+## Normalization
+
+- Datetimes must include timezone information and are normalized to UTC.
+- `category_code` is stripped and uppercased.
+- `merchant_key` is Unicode-normalized, lowercased, separator-collapsed, and may remain `null` when unavailable.
+- `is_shared_expense`, `is_planned`, and `is_recurring` remain tri-state through preprocessing.

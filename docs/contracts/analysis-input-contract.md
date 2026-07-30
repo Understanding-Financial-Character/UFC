@@ -6,7 +6,7 @@ Defines the structured input that backend orchestration passes into the Python a
 
 ## Status
 
-Target contract. Concrete implementation is owned by AN Phase 1 and AN Phase 2. PR #6 is tracked separately and is not merged into `main`.
+Implemented by AN Phase 1 for DB-independent preprocessing input. Later analysis phases may extend derived evidence contracts without passing SQLAlchemy entities into analysis functions.
 
 ## Schema Version
 
@@ -32,8 +32,8 @@ UFC uses the following ownership model:
 
 1. FastAPI Backend reads owned source data, validates access, excludes sensitive identity fields, and builds `AnalysisInput`.
 2. Analysis Preprocessing filters or classifies transaction rows by `transactionType`, `categoryCode`, source markers, and quality policy.
-3. Analysis Preprocessing derives `behaviorGroup` from `categoryCode` using a versioned category-behavior mapping when `behaviorGroup` is not provided.
-4. Behavior Metric Engine consumes the preprocessed transaction set.
+3. Analysis Preprocessing normalizes timestamps, category codes, and merchant keys, then computes deterministic data quality output.
+4. Behavior Metric Engine consumes the preprocessed transaction set in later phases.
 
 The Backend does not decide final feature availability, axis scores, or consumption MBTI. It also does not pass user email, username, nickname, tokens, ciphertext, secrets, or raw transaction memo text into this contract.
 
@@ -74,7 +74,7 @@ The Backend does not decide final feature availability, axis scores, or consumpt
 
 `WITHDRAWAL` rows are analysis candidates. `DEPOSIT`, `REFUND`, `ADJUSTMENT`, and `TRANSFER` rows are passed so AN Phase 1 can apply a documented filtering policy, but behavior metrics must not treat them as ordinary spending.
 
-`behaviorGroup` values use the canonical category behavior group enum: `PRACTICAL`, `EXPERIENCE`, `RELATIONSHIP`, `REGULAR`, `SAVINGS`, and `OTHER`. When omitted or `null`, Analysis Preprocessing derives it from `categoryCode`; when derivation is impossible, dependent features become unavailable rather than zero.
+`behaviorGroup` values use the canonical category behavior group enum: `PRACTICAL`, `EXPERIENCE`, `RELATIONSHIP`, `REGULAR`, `SAVINGS`, and `OTHER`. When omitted or `null`, AN Phase 1 preserves the missing value. Later metrics that depend on behavior-group evidence must treat those rows as unavailable rather than zero.
 
 If Analysis needs broader derived classifications, it must create separate derived fields instead of changing the source enum. Example derived fields:
 
@@ -148,4 +148,19 @@ Tri-state boolean meaning:
 - Uploaded data must be validated before analysis.
 - Synthetic data must be marked before result generation.
 - Analysis period and source type must be present before data-quality scoring.
-- Category-to-behavior mapping must be versioned by the analysis layer.
+- Category-to-behavior mapping must be versioned by the analysis layer before any later metric derives behavior evidence.
+
+## AN Phase 1 Output
+
+`preprocess_analysis_input()` returns:
+
+- `normalized_transactions`: non-excluded `WITHDRAWAL` rows sorted by `occurred_at` and `transaction_id`
+- `included_count`
+- `excluded_count`
+- `data_quality_score`
+- `analysis_eligible`
+- `result_status_candidate`: `STANDARD`, `PROVISIONAL`, or `INSUFFICIENT_DATA`
+- `provisional_reasons`
+- `limitations`
+
+`DEPOSIT`, `REFUND`, `TRANSFER`, `ADJUSTMENT`, and source-excluded rows are returned as excluded audit entries and are not included in ordinary spending denominators.

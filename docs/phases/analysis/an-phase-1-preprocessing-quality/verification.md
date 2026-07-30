@@ -1,20 +1,33 @@
 # AN Phase 1 - Preprocessing and Data Quality Verification
 
 ## Verified Commit
-Not executed.
+Pending final commit.
 ## Verified At
-Not executed.
+2026-07-30
 ## Environment
-Not executed.
+Docker Compose dev backend on PostgreSQL 16.
 ## Commands
-Not executed.
+- `docker compose -f compose.yaml -f compose.dev.yaml config`
+- `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend alembic upgrade head`
+- `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest tests/test_analysis_preprocessing.py`
+- `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest`
+- `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend ruff check app tests`
+- `git diff --check`
 ## Results
-Not executed.
+- Compose config: passed.
+- Alembic upgrade head: passed.
+- AN Phase 1 tests: 5 passed.
+- Full backend tests: 55 passed, 1 upstream deprecation warning from FastAPI/Starlette TestClient.
+- Ruff: passed.
+- Diff whitespace check: passed.
 ## API Evidence
 Not applicable.
 ## DB Evidence
-Not applicable.
+No schema change in AN Phase 1. Existing migration chain applies cleanly to head.
 ## Security Evidence
-Not executed.
+- Analysis DTOs exclude user email, username, nickname, account numbers, card numbers, tokens, ciphertext, and secrets.
+- Preprocessing depends on analysis dataclasses only and does not import SQLAlchemy, FastAPI routers, or database sessions.
+- Source transaction arrays are not sent to Qwen3 in this phase.
 ## Known Limitations
-Phase not started.
+- Feature calculation, axis scoring, persistence, API routing, and Qwen3 report generation remain out of scope for later phases.
+- Low category or merchant coverage keeps output provisional but does not block preprocessing output when minimum count and period are satisfied.

@@ -1,7 +1,7 @@
 # AN Phase 1 - Preprocessing and Data Quality
 
 ## Status
-NOT_STARTED
+IMPLEMENTED
 ## Goal
 Convert normalized transactions into quality-checked analysis input.
 ## Why
@@ -21,9 +21,9 @@ None.
 ## Security Considerations
 No raw personal identifiers in analysis DTO unless explicitly required.
 ## Implementation Tasks
-Implement preprocessing and quality DTOs.
+Implemented DB-independent analysis dataclasses, transaction filtering policy, UTC and merchant-key normalization, data-quality scoring, provisional reasons, and limitations.
 ## Test Scenarios
-Missing categories, missing merchant, sparse data, synthetic data, tri-state signals.
+Covered excluded transaction types, source-excluded rows, timezone normalization, merchant-key normalization, sparse data, synthetic data, missing category and merchant coverage, tri-state signals, and invalid contract inputs.
 ## Completion Criteria
 Quality outputs and tests verified.
 ## Branch
