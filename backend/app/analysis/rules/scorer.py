@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.analysis.contracts import (
     CONSUMPTION_MBTI_SCHEMA_VERSION,
+    SYNTHETIC_SOURCE_TYPES,
     AxisContribution,
     AxisDecisionStatus,
     AxisScoreResult,
@@ -50,7 +51,7 @@ def score_consumption_mbti(rule_input: RuleEngineInput) -> ConsumptionMbtiResult
         score_axis(axis_rule=rules.axes[axis], features_by_code=features_by_code, rules=rules)
         for axis in AXIS_ORDER
     )
-    is_synthetic = rule_input.behavior_metrics.is_synthetic or rule_input.is_synthetic
+    is_synthetic = is_synthetic_metrics(rule_input.behavior_metrics)
     provisional_reasons = collect_provisional_reasons(
         axis_results=axis_results,
         rules=rules,
@@ -108,6 +109,13 @@ def build_feature_index(
     features: tuple[BehaviorFeatureResult, ...],
 ) -> dict[BehaviorFeatureCode, BehaviorFeatureResult]:
     return {feature.feature_code: feature for feature in features}
+
+
+def is_synthetic_metrics(behavior_metrics: object) -> bool:
+    return (
+        getattr(behavior_metrics, "is_synthetic", False)
+        or getattr(behavior_metrics, "source_type", None) in SYNTHETIC_SOURCE_TYPES
+    )
 
 
 def score_axis(

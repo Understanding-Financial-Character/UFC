@@ -40,7 +40,7 @@ Behavior feature output is implemented by AN Phase 2. `consumption-mbti-v1` is i
 ```
 
 Behavior features include calculation evidence and minimum-data handling. Missing inputs produce `status=UNAVAILABLE` with `rawValue=null` and `normalizedScore=null`, not zero.
-`sourceType` and `isSynthetic` are preserved on the behavior metrics result so the rule engine can mark mock or generated data as provisional without relying on an optional caller flag.
+`sourceType` is the canonical provenance value. `isSynthetic` is a derived marker on the behavior metrics result, and the rule engine treats `MOCK` and `INTERNAL_TEST` sources as synthetic even if a caller supplies a contradictory boolean.
 
 Feature units:
 

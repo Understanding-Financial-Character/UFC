@@ -29,6 +29,14 @@ class AnalysisSourceType(str, enum.Enum):
     INTERNAL_TEST = "INTERNAL_TEST"
 
 
+SYNTHETIC_SOURCE_TYPES = frozenset(
+    {
+        AnalysisSourceType.MOCK,
+        AnalysisSourceType.INTERNAL_TEST,
+    }
+)
+
+
 class AnalysisTransactionType(str, enum.Enum):
     WITHDRAWAL = "WITHDRAWAL"
     DEPOSIT = "DEPOSIT"
@@ -237,7 +245,6 @@ class BehaviorMetricsInput:
     observation_ended_at: datetime
     timezone: str = "Asia/Seoul"
     source_type: AnalysisSourceType = AnalysisSourceType.CSV
-    is_synthetic: bool = False
 
 
 @dataclass(frozen=True)
@@ -254,7 +261,6 @@ class BehaviorMetricsResult:
 @dataclass(frozen=True)
 class RuleEngineInput:
     behavior_metrics: BehaviorMetricsResult
-    is_synthetic: bool = False
 
 
 @dataclass(frozen=True)

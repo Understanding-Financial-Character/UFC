@@ -28,7 +28,7 @@ The same direction contract is recorded in `backend/app/analysis/constants.py`.
 - Defer axis judgment when coverage is too low.
 - Defer exact midpoint ties instead of assigning them to the high pole.
 - Produce final MBTI only when all four axes are available.
-- Mark mock-data results as `PROVISIONAL` from `BehaviorMetricsResult.source_type` and `is_synthetic`.
+- Mark mock-data results as `PROVISIONAL` from canonical `BehaviorMetricsResult.source_type`.
 
 AN Phase 3 implements `consumption-mbti-v1` in `backend/app/analysis/rules/consumption-mbti-v1.yaml`.
 

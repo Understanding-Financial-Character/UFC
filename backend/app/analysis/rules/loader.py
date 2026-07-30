@@ -85,7 +85,7 @@ def parse_consumption_mbti_rules(payload: dict[str, Any]) -> ConsumptionMbtiRule
                     feature_payload.get("direction"),
                     f"{axis.value}.direction",
                 ),
-                weight=float(feature_payload.get("weight")),
+                weight=finite_float(feature_payload.get("weight"), f"{axis.value}.weight"),
             )
             for feature_payload in axis_payload.get("features", ())
         )
@@ -106,9 +106,15 @@ def parse_consumption_mbti_rules(payload: dict[str, Any]) -> ConsumptionMbtiRule
             "behavior_feature_policy_version"
         ),
         required_category_mapping_version=requirements.get("category_mapping_version"),
-        min_decision_coverage=float(payload.get("min_decision_coverage")),
-        standard_coverage=float(payload.get("standard_coverage")),
-        low_margin_threshold=float(payload.get("low_margin_threshold")),
+        min_decision_coverage=finite_float(
+            payload.get("min_decision_coverage"),
+            "min_decision_coverage",
+        ),
+        standard_coverage=finite_float(payload.get("standard_coverage"), "standard_coverage"),
+        low_margin_threshold=finite_float(
+            payload.get("low_margin_threshold"),
+            "low_margin_threshold",
+        ),
         axes=axes,
     )
     validate_rules(rule_set)
@@ -161,3 +167,13 @@ def enum_value(enum_type: type, value: Any, field_name: str):
         return enum_type(value)
     except ValueError as exc:
         raise RuleConfigurationError(f"Invalid {field_name}: {value}") from exc
+
+
+def finite_float(value: Any, field_name: str) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError) as exc:
+        raise RuleConfigurationError(f"Invalid numeric value for {field_name}: {value}") from exc
+    if not isfinite(parsed):
+        raise RuleConfigurationError(f"{field_name} must be finite.")
+    return parsed

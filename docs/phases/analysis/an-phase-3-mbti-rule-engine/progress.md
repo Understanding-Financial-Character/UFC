@@ -9,7 +9,7 @@ IMPLEMENTED
 - Weight renormalization when features are unavailable.
 - Axis coverage, exact tie deferral, margin, deferred axis handling, and low-margin provisional reasons.
 - Final `mbti_type` only when all four axes are decided.
-- Synthetic data provisional reason support through `BehaviorMetricsResult.source_type` and `is_synthetic`.
+- Synthetic data provisional reason support through canonical `BehaviorMetricsResult.source_type`.
 - Axis-specific feature contribution evidence, including low-pole support and reused features on different axes.
 - Rule version, confidence, result status, provisional reasons, and nullable MBTI output.
 - Golden tests for all required AN Phase 3 scenarios.
@@ -20,9 +20,12 @@ No AN Phase 3 implementation work remains. Persistence, API routing, orchestrati
 ## Migration Changes
 None.
 ## Linked PR
-Not assigned.
+#16
 ## Commits
-`09f5e53`
+- Initial implementation: `e88bbb1`
+- Review fixes verified: `09f5e53`
+- Verification documentation: `a68bc5a`
+- Source provenance review fix: Pending commit.
 ## Blockers
 None.
 ## Handover Notes

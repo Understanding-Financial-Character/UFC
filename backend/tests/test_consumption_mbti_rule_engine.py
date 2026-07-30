@@ -193,6 +193,22 @@ def test_mock_data_adds_synthetic_provisional_reason() -> None:
     assert result.confidence.level.value == "MEDIUM"
 
 
+def test_mock_source_is_provisional_even_when_boolean_is_false() -> None:
+    metrics = metrics_for_profile(
+        ei="E",
+        sn="N",
+        tf="F",
+        jp="P",
+        source_type=AnalysisSourceType.MOCK,
+        is_synthetic=False,
+    )
+
+    result = score_consumption_mbti(RuleEngineInput(behavior_metrics=metrics))
+
+    assert result.result_status == ResultStatus.PROVISIONAL
+    assert SYNTHETIC_DATA in result.provisional_reasons
+
+
 def test_conflicting_signals_keep_axis_specific_contributions() -> None:
     feature_values = strong_values(ei="E", sn="N", tf="F", jp="P")
     feature_values[BehaviorFeatureCode.SHARED_EXPENSE_RATIO] = 1.0
@@ -289,6 +305,20 @@ def test_rule_configuration_validation_rejects_invalid_direction() -> None:
 def test_rule_configuration_validation_rejects_invalid_weight() -> None:
     payload = rule_payload()
     payload["axes"]["EI"]["features"][0]["weight"] = -1
+
+    with pytest.raises(RuleConfigurationError):
+        parse_consumption_mbti_rules(payload)
+
+
+def test_rule_configuration_validation_rejects_malformed_numeric_values() -> None:
+    payload = rule_payload()
+    payload["axes"]["EI"]["features"][0]["weight"] = None
+
+    with pytest.raises(RuleConfigurationError):
+        parse_consumption_mbti_rules(payload)
+
+    payload = rule_payload()
+    payload["min_decision_coverage"] = "not-a-number"
 
     with pytest.raises(RuleConfigurationError):
         parse_consumption_mbti_rules(payload)

@@ -12,6 +12,7 @@ from app.analysis.contracts import (
     BEHAVIOR_FEATURE_POLICY_VERSION,
     BEHAVIOR_FEATURE_SCHEMA_VERSION,
     CATEGORY_MAPPING_VERSION,
+    SYNTHETIC_SOURCE_TYPES,
     AnalysisSourceType,
     AnalysisTransactionType,
     BehaviorFeatureCode,
@@ -155,7 +156,7 @@ def calculate_behavior_metrics(
         category_mapping_version=CATEGORY_MAPPING_VERSION,
         analysis_timezone=context.timezone,
         source_type=context.source_type,
-        is_synthetic=context.is_synthetic,
+        is_synthetic=is_synthetic_source(context.source_type),
         features=features,
     )
 
@@ -179,7 +180,6 @@ def coerce_metrics_input(
         observation_ended_at=ended_at,
         timezone=MVP_ANALYSIS_TIMEZONE,
         source_type=source_type,
-        is_synthetic=is_synthetic_source(source_type),
     )
 
 
@@ -197,7 +197,7 @@ def infer_source_type(transactions: tuple[NormalizedTransaction, ...]) -> Analys
 
 
 def is_synthetic_source(source_type: AnalysisSourceType) -> bool:
-    return source_type in {AnalysisSourceType.MOCK, AnalysisSourceType.INTERNAL_TEST}
+    return source_type in SYNTHETIC_SOURCE_TYPES
 
 
 def amount_ratio(
