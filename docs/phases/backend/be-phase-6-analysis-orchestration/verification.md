@@ -1,7 +1,7 @@
 # BE Phase 6 - Analysis Orchestration Verification
 
 ## Verified Commit
-`b78be41`
+Pending merge conflict resolution commit.
 ## Verified At
 2026-07-30
 ## Environment
@@ -9,15 +9,15 @@ Docker Compose dev backend on PostgreSQL 16. Alembic was verified against isolat
 ## Commands
 - `docker compose -f compose.yaml -f compose.dev.yaml config`
 - `docker compose -f compose.yaml -f compose.dev.yaml run --rm -e DATABASE_URL=postgresql+psycopg://ufc:ufc@db:5432/ufc_phase6_review backend alembic upgrade head`
-- `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest tests/test_analysis_orchestration.py tests/test_analysis_persistence.py`
+- `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest tests/test_analysis_module_mock_fixture_regression.py tests/test_analysis_orchestration.py tests/test_analysis_persistence.py`
 - `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest`
 - `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend ruff check app tests`
 - `git diff --check`
 ## Results
 - Compose config: passed.
 - Alembic upgrade head on isolated PostgreSQL database: passed.
-- BE Phase 6 orchestration and persistence tests: 23 passed.
-- Full backend tests: 148 passed, 1 upstream FastAPI/Starlette TestClient deprecation warning.
+- BE Phase 6 orchestration, persistence, and mock fixture regression tests: 26 passed.
+- Full backend tests: 151 passed, 1 upstream FastAPI/Starlette TestClient deprecation warning.
 - Ruff: passed.
 - Diff whitespace check: passed.
 ## API Evidence

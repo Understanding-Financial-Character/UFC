@@ -8,10 +8,12 @@ IMPLEMENTED
   - `GET /api/v1/analyses/{analysisId}`
   - `GET /api/v1/groups/{groupId}/analyses/latest`
   - `POST /api/v1/analyses/{analysisId}/retry`
+  - `POST /api/v1/analyses/{analysisId}/report/retry`
 - Group ownership and readiness checks before analysis execution.
 - Active run conflict prevention for the same group.
 - Transaction lookup by requested period and conversion from DB entities to pure `AnalysisInput` DTOs.
 - Synchronous MVP orchestration through preprocessing, behavior metrics, rule engine, persistence, and grounded AI report generation.
+- Deterministic analysis is committed before AI report generation so Qwen/report failure cannot invalidate behavior metrics or rule results.
 - Behavior metric, consumption MBTI, AI report, minimized analysis input snapshot, snapshot hash, and version persistence.
 - LLM/report fallback isolation so deterministic rule results remain persisted.
 - `INSUFFICIENT_DATA` runs skip AI report generation and preserve deterministic outputs only.
@@ -21,12 +23,20 @@ IMPLEMENTED
 - AI report-only retry locks the analysis run and rejects concurrent retry attempts.
 - AI report-only retry uses member MBTI summary from the persisted analysis input snapshot.
 - Legacy failed runs without valid snapshots return `ANALYSIS_SNAPSHOT_UNAVAILABLE` instead of leaking a server error.
-- API response DTOs that do not expose SQLAlchemy entities or raw transaction arrays.
+- API response DTOs do not expose SQLAlchemy entities or raw transaction arrays.
 ## Remaining
 Frontend polling integration remains a later frontend phase.
+
+P2 follow-ups remain outside this PR:
+
+- Revisit synchronous `202 Accepted` response semantics.
+- Add deeper PostgreSQL concurrency coverage for full analysis creation.
+- Split latest-analysis ownership reads from row-locking write paths.
+- Improve mixed source provenance.
+- Add retry attempt history fields if product needs report retry audit trails.
 ## Contract Changes
 - `api-contracts.md` documents Phase 6 analysis create/get/latest/retry endpoints.
-- `api-contracts.md` documents report-only retry.
+- `api-contracts.md` documents report-only retry, concurrent retry rejection, and snapshot-based member MBTI summary.
 - `analysis-output-contract.md` documents Phase 6 terminal analysis statuses, input snapshot persistence, AI skip behavior for insufficient data, and report retry behavior.
 - `data-model.md` documents extended `analysis_runs.status` values, `analysis_input_snapshot`, and `retried_from_analysis_id`.
 ## Migration Changes
@@ -44,3 +54,5 @@ Frontend polling integration remains a later frontend phase.
 None.
 ## Handover Notes
 Qwen/report generation receives only grounded aggregate evidence. Raw transaction arrays are not included in the AI report prompt context or API response.
+
+Mock fixture regression coverage from `backend/tests/test_analysis_module_mock_fixture_regression.py` remains a lower-level baseline on `main`; Phase 6 API tests verify orchestration, ownership, persistence, retry, insufficient-data skip, and report failure boundaries.
