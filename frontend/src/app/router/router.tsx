@@ -2,6 +2,16 @@ import { createBrowserRouter } from "react-router-dom";
 
 import { ProtectedRoute } from "../../components/guards/ProtectedRoute";
 import { RoleGuard } from "../../components/guards/RoleGuard";
+import {
+  AnalysisLoadingPage,
+  AnalysisResultPage,
+  ConsumptionDataConnectionPage,
+  GoalSetupPage,
+  GoalSummaryPage,
+  OnboardingIntroPage,
+  RelationshipSelectionPage,
+  StitchLandingPage,
+} from "../../pages/AnalysisFlowPages";
 import { ForbiddenPage } from "../../pages/ForbiddenPage";
 import { HomePage } from "../../pages/HomePage";
 import { LoginPage } from "../../pages/LoginPage";
@@ -12,7 +22,43 @@ import { SignupPage } from "../../pages/SignupPage";
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <HomePage />,
+    element: <StitchLandingPage />,
+  },
+  {
+    path: "/onboarding",
+    element: <OnboardingIntroPage />,
+  },
+  {
+    path: "/flow/relationship",
+    element: <RelationshipSelectionPage />,
+  },
+  {
+    path: "/flow/goal",
+    element: <GoalSetupPage />,
+  },
+  {
+    path: "/flow/summary",
+    element: <GoalSummaryPage />,
+  },
+  {
+    path: "/flow/data",
+    element: <ConsumptionDataConnectionPage />,
+  },
+  {
+    path: "/analysis/loading",
+    element: (
+      <ProtectedRoute>
+        <AnalysisLoadingPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: "/analysis/result",
+    element: (
+      <ProtectedRoute>
+        <AnalysisResultPage />
+      </ProtectedRoute>
+    ),
   },
   {
     path: "/login",
