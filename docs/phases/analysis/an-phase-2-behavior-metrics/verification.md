@@ -1,7 +1,7 @@
 # AN Phase 2 - Behavior Metrics Verification
 
 ## Verified Commit
-Pending final commit.
+`ebed946`
 ## Verified At
 2026-07-30
 ## Environment
@@ -12,6 +12,8 @@ Docker Compose dev backend on PostgreSQL 16.
 - `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest tests/test_behavior_metrics.py`
 - `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest`
 - `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend ruff check app tests`
+- `git fetch origin main`
+- `git diff --check origin/main...HEAD`
 - `git diff --check`
 ## Results
 - Compose config: passed.
@@ -19,6 +21,7 @@ Docker Compose dev backend on PostgreSQL 16.
 - AN Phase 2 behavior metric tests: 8 passed.
 - Full backend tests: 83 passed, 1 upstream deprecation warning from FastAPI/Starlette TestClient.
 - Ruff: passed.
+- CI-style committed diff whitespace check: passed.
 - Diff whitespace check: passed.
 ## API Evidence
 Not applicable.

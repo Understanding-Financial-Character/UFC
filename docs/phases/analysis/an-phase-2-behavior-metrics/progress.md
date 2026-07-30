@@ -21,7 +21,7 @@ None.
 ## Linked PR
 PR #6 was reviewed as prior art; this branch is the AN Phase 2 successor implementation.
 ## Commits
-Pending final commit.
+`ebed946`
 ## Blockers
 None.
 ## Handover Notes
