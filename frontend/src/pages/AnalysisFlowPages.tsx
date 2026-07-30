@@ -51,10 +51,11 @@ const demoMembers = [
 
 export function StitchLandingPage() {
   const navigate = useNavigate();
+  const user = useAppSelector((state) => state.auth.user);
 
   return (
     <main className="flow-page flow-landing">
-      <FlowHeader title="Meeting Personality" />
+      <FlowHeader actionLabel={user ? "모임 홈" : "로그인"} actionTo={user ? "/app" : "/login"} title="Meeting Personality" />
       <section className="flow-hero">
         <div className="flow-copy">
           <h1>
@@ -85,7 +86,12 @@ export function StitchLandingPage() {
 
         <div className="flow-hint">개인 MBTI와는 또 다른 우리 모임만의 소비 성향이 궁금하지 않나요?</div>
       </section>
-      <FlowBottomAction label="분석 시작하기" onClick={() => navigate("/onboarding")} />
+      <FlowBottomAction
+        label="분석 시작하기"
+        onClick={() => navigate("/onboarding")}
+        secondaryLabel={user ? "기존 모임 홈 보기" : "로그인해서 모임 보기"}
+        secondaryTo={user ? "/app" : "/login"}
+      />
     </main>
   );
 }
@@ -271,7 +277,13 @@ export function GoalSummaryPage() {
           <small>소비 MBTI 분석 대기 중</small>
         </article>
       </section>
-      <FlowBottomAction label="소비 데이터 연결하기" helper="나중에 할 수도 있어요" onClick={() => navigate("/flow/data")} />
+      <FlowBottomAction
+        label="소비 데이터 연결하기"
+        helper="기존 모임은 모임 홈에서 바로 확인할 수 있어요"
+        onClick={() => navigate("/flow/data")}
+        secondaryLabel="모임 홈 보기"
+        secondaryTo="/app"
+      />
     </main>
   );
 }
@@ -310,7 +322,11 @@ export function ConsumptionDataConnectionPage() {
       setFlowMessage("mock-v2 소비 데이터를 연결하는 중입니다.");
       await applyMockScenario({ groupId: group.group_id, scenarioId: scenarios[0]?.scenario_id ?? "mock-v2" }).unwrap();
 
+      saveFlow({ groupId: group.group_id });
       setFlowMessage("규칙 기반 분석과 Qwen 리포트를 생성하는 중입니다.");
+      window.setTimeout(() => {
+        navigate(`/analysis/loading?groupId=${group.group_id}`);
+      }, 150);
       const analysis = await createAnalysis({
         groupId: group.group_id,
         body: { period_start: "2026-05-01", period_end: "2026-07-31" },
@@ -359,23 +375,29 @@ export function AnalysisLoadingPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const analysisId = params.get("analysisId") ?? loadFlow().analysisId;
+  const groupId = params.get("groupId") ?? loadFlow().groupId;
   const { data: analysis, error } = useGetAnalysisQuery(analysisId ?? skipToken, {
     pollingInterval: 2500,
   });
+  const { data: latestAnalysis } = useGetLatestGroupAnalysisQuery(groupId ?? skipToken, {
+    pollingInterval: 2500,
+    skip: Boolean(analysisId),
+  });
+  const visibleAnalysis = analysis ?? latestAnalysis;
 
   useEffect(() => {
-    if (!analysis) {
+    if (!visibleAnalysis) {
       return;
     }
-    if (isTerminalAnalysisStatus(analysis.status)) {
+    if (isTerminalAnalysisStatus(visibleAnalysis.status)) {
       const timer = window.setTimeout(() => {
-        navigate(`/analysis/result?analysisId=${analysis.analysis_id}`, { replace: true });
+        navigate(`/analysis/result?analysisId=${visibleAnalysis.analysis_id}`, { replace: true });
       }, 900);
       return () => window.clearTimeout(timer);
     }
-  }, [analysis, navigate]);
+  }, [visibleAnalysis, navigate]);
 
-  const currentStep = analysisStep(analysis);
+  const currentStep = analysisStep(visibleAnalysis);
 
   return (
     <main className="flow-page flow-centered">
@@ -385,7 +407,7 @@ export function AnalysisLoadingPage() {
           <span />
           <b>MBTI</b>
         </div>
-        <h1>{analysis?.status === "FAILED" ? "분석을 완료하지 못했어요" : "데이터를 분석하고 있어요"}</h1>
+        <h1>{visibleAnalysis?.status === "FAILED" ? "분석을 완료하지 못했어요" : "데이터를 분석하고 있어요"}</h1>
         <p>{error ? "분석 결과를 불러오지 못했습니다." : loadingCopy(currentStep)}</p>
         <div className="loading-steps">
           {["소비 카테고리 분석", "반복 지출 패턴 추출", "모임 성향 계산", "Qwen 리포트 생성"].map((label, index) => (
@@ -420,13 +442,18 @@ export function AnalysisResultPage() {
 }
 
 function ResultContent({ analysis }: { analysis: AnalysisResponse }) {
-  const report = analysis.ai_report?.report_content;
   const result = analysis.consumption_mbti_result;
   const mbti = result?.mbti_type ?? "보류";
   const topMetrics = analysis.behavior_metrics.filter((metric) => metric.status === "AVAILABLE").slice(0, 4);
+  const report = buildDisplayReport(analysis, topMetrics);
 
   return (
     <>
+      <nav className="result-actions" aria-label="결과 화면 이동">
+        <Link to="/app">모임 홈</Link>
+        <Link to="/flow/data">다시 분석</Link>
+        <Link to="/settings">설정</Link>
+      </nav>
       <section className="result-hero">
         <span className="flow-badge">{spendingTitle(mbti)}</span>
         <h1>
@@ -435,7 +462,7 @@ function ResultContent({ analysis }: { analysis: AnalysisResponse }) {
         <div className="result-character" aria-hidden="true">
           ✨
         </div>
-        <p>{report?.summary ?? "규칙 기반 소비 MBTI와 근거를 바탕으로 만든 분석 결과입니다."}</p>
+        <p>{report.summary}</p>
       </section>
       <section className="axis-card">
         <h2>소비 성향 4대 지표</h2>
@@ -458,11 +485,11 @@ function ResultContent({ analysis }: { analysis: AnalysisResponse }) {
         ))}
       </section>
       <section className="report-card">
-        <h2>{report?.headline ?? "Qwen 리포트"}</h2>
-        <ListBlock title="강점" items={report?.strengths} />
-        <ListBlock title="공통점" items={report?.commonPoints} />
-        <ListBlock title="대화 질문" items={report?.conversationQuestions} />
-        <p>{report?.disclaimer ?? "이 결과는 실제 성격 진단이나 금융 진단이 아닙니다."}</p>
+        <h2>{report.headline}</h2>
+        <ListBlock title="강점" items={report.strengths} />
+        <ListBlock title="공통점" items={report.commonPoints} />
+        <ListBlock title="대화 질문" items={report.conversationQuestions} />
+        <p>{report.disclaimer}</p>
       </section>
     </>
   );
@@ -520,14 +547,88 @@ function ListBlock({ title, items }: { title: string; items?: string[] }) {
   );
 }
 
-function FlowHeader({ title, backTo = "/" }: { title: string; backTo?: string }) {
+interface DisplayReport {
+  headline: string;
+  summary: string;
+  strengths: string[];
+  commonPoints: string[];
+  conversationQuestions: string[];
+  disclaimer: string;
+}
+
+function buildDisplayReport(
+  analysis: AnalysisResponse,
+  metrics: AnalysisResponse["behavior_metrics"],
+): DisplayReport {
+  const content = analysis.ai_report?.report_content;
+  const mbti = analysis.consumption_mbti_result?.mbti_type;
+  const confidence = formatRatio(analysis.consumption_mbti_result?.confidence.score);
+  const evidence = metrics.map((metric) => formatEvidenceText(metric.evidence[0] ?? metric.feature_code));
+  const fallbackSummary = `${mbti ?? "보류"}형 소비 패턴은 계산 가능한 거래 근거를 바탕으로 산출됐습니다. 신뢰도는 ${confidence}이며, 현재 결과는 모임의 대화와 회고를 돕기 위한 참고용 인사이트입니다.`;
+
+  return {
+    headline: readableKorean(content?.headline) ?? `${mbti ?? "소비 성향"} 리포트`,
+    summary: readableKorean(content?.summary) ?? fallbackSummary,
+    strengths: koreanList(content?.strengths, [
+      "공동 지출과 반복 지출의 균형을 기준으로 모임의 소비 방향이 비교적 선명하게 드러납니다.",
+      evidence[0] ? `핵심 근거: ${evidence[0]}` : "계산 가능한 Feature만 사용해 결과를 산출했습니다.",
+    ]),
+    commonPoints: koreanList(content?.commonPoints, [
+      "개인 MBTI는 참고 정보로만 사용하고, 소비 MBTI는 거래 패턴과 규칙 엔진 결과로 분리해 판단했습니다.",
+      evidence[1] ? `보조 근거: ${evidence[1]}` : "데이터가 부족한 항목은 임의로 점수화하지 않았습니다.",
+    ]),
+    conversationQuestions: koreanList(content?.conversationQuestions, [
+      "이번 결과가 실제 모임의 소비 분위기와 어느 정도 맞는지 함께 이야기해보면 좋겠습니다.",
+    ]),
+    disclaimer:
+      readableKorean(content?.disclaimer) ??
+      "이 리포트는 실제 성격 진단이나 금융 진단이 아니며, 금융상품 추천 또는 신용 평가 목적으로 사용할 수 없습니다.",
+  };
+}
+
+function koreanList(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+  const readable = value.map((item) => readableKorean(item)).filter((item): item is string => Boolean(item));
+  return readable.length ? readable : fallback;
+}
+
+function readableKorean(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const normalized = value.trim();
+  if (!normalized || /[A-Za-z]{4,}/.test(normalized)) {
+    return null;
+  }
+  return formatEvidenceText(normalized);
+}
+
+function FlowHeader({
+  title,
+  backTo = "/",
+  actionLabel,
+  actionTo,
+}: {
+  title: string;
+  backTo?: string;
+  actionLabel?: string;
+  actionTo?: string;
+}) {
   return (
     <header className="flow-header">
       <Link aria-label="이전으로" to={backTo}>
         ‹
       </Link>
       <strong>{title}</strong>
-      <span />
+      {actionLabel && actionTo ? (
+        <Link className="flow-header-action" to={actionTo}>
+          {actionLabel}
+        </Link>
+      ) : (
+        <span />
+      )}
     </header>
   );
 }
@@ -550,16 +651,21 @@ function FlowBottomAction({
   label,
   helper,
   onClick,
+  secondaryLabel,
+  secondaryTo,
 }: {
   label: string;
   helper?: string;
   onClick: () => void;
+  secondaryLabel?: string;
+  secondaryTo?: string;
 }) {
   return (
     <div className="flow-bottom-action">
       <button onClick={onClick} type="button">
         {label}
       </button>
+      {secondaryLabel && secondaryTo ? <Link to={secondaryTo}>{secondaryLabel}</Link> : null}
       {helper ? <p>{helper}</p> : null}
     </div>
   );
