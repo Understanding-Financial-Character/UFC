@@ -33,6 +33,7 @@ Not assigned.
 ## Commits
 - `96758c0` feat: add analysis persistence schema
 - `c4d6ee4` fix: align analysis persistence contracts
+- `6f47f45` fix: tighten analysis persistence invariants
 ## Blockers
 None.
 ## Handover Notes
