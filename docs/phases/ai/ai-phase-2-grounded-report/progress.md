@@ -20,7 +20,7 @@ None.
 ## Linked PR
 Not assigned.
 ## Commits
-None.
+- `6e618d6` feat: add grounded qwen report validation
 ## Blockers
 None for standalone AI service. Orchestration/persistence integration remains later work.
 ## Handover Notes
