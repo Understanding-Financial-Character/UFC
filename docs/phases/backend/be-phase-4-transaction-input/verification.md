@@ -1,7 +1,7 @@
 # BE Phase 4 - Transaction Input Verification
 
 ## Verified Commit
-Pending final commit.
+`3b8f211`
 ## Verified At
 2026-07-30
 ## Environment

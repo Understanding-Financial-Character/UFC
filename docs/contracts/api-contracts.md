@@ -585,6 +585,7 @@ Response:
 Field rules:
 
 - Accepted CSV fields: `group_id`, `member_id`, `category_id`, `transaction_at`, `transaction_type`, `amount`, `merchant_name`, `description`, `is_shared_expense`, `is_planned`, `is_recurring`, `is_excluded`, `exclusion_reason`, `source_row_key`.
+- `group_id`: optional. When present, it must be a valid UUID and must match the `{groupId}` path parameter. When blank or omitted, the import uses the path group.
 - `transaction_type`: enum, required, one of `DEPOSIT`, `WITHDRAWAL`.
 - `amount`: positive decimal. Direction is represented only by `transaction_type`, not negative amounts.
 - `amount`: must not exceed `999999999999.99`, matching the `Numeric(14, 2)` storage contract.
@@ -595,7 +596,7 @@ Field rules:
 - `member_id`: optional; when present it must reference an `ACTIVE` member in the target group.
 - `category_id`: optional; when present it must reference an active category.
 - `source_row_key`: optional, but when present it must be unique within the same group.
-- `group_id`, `member_id`, and `category_id`: when present, must be valid UUID strings.
+- `member_id` and `category_id`: when present, must be valid UUID strings.
 - `transaction_at`: must include a timezone offset, for example `2026-07-01T10:00:00+09:00` or `2026-07-01T01:00:00Z`.
 - Text fields that exceed their contract length are rejected with row-level validation errors; values are not silently truncated.
 - CSV headers containing account, card, bank auth, or token-like fields are rejected. The backend must not log full CSV raw text.
