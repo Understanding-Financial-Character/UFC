@@ -25,7 +25,8 @@ Strict prompt minimization and no secret/raw financial transfer.
 - Implement Pydantic output schema.
 - Implement JSON extraction and one repair attempt.
 - Implement evidence number validation.
-- Implement unsupported claim and prohibited wording checks.
+- Implement strict output schema and evidence number validation against the prompt context.
+- Implement limited unsupported claim, prohibited wording, and prohibited input checks.
 - Implement timeout/provider failure template fallback.
 - Record prompt version, model, latency, fallback status, repair status, and validation flags.
 ## Test Scenarios

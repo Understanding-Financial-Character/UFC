@@ -44,16 +44,18 @@ Generation uses non-streaming responses, non-thinking mode by default, and conse
 
 AI Phase 2 adds `GroundedReportService`:
 
-1. Build a minimized prompt payload from spending MBTI, axis scores, confidence, top evidence, member MBTI summary, limitations, and result status.
+1. Build a minimized prompt context from spending MBTI, axis scores, confidence, the top five evidence items, member MBTI summary, limitations, and result status.
 2. Request a JSON-only Korean report from Qwen3.
-3. Validate the JSON with a Pydantic schema.
-4. Check numeric evidence consistency.
+3. Validate the JSON with a strict Pydantic schema that rejects unknown output fields.
+4. Check numeric evidence consistency against the same prompt context sent to Qwen3.
 5. Reject unsupported claims, real diagnosis wording, and financial product recommendation wording.
 6. Attempt one JSON repair when parsing or schema validation fails.
-7. Use deterministic template fallback when repair fails or the provider times out/fails.
-8. Return report metadata with prompt version, model, latency, validation flags, repair status, and fallback status.
+7. Use deterministic template fallback when repair fails or the provider times out/fails; fallback text uses structured metric/value fields and does not copy raw evidence basis or limitation text.
+8. Return report metadata with prompt version, model, latency, validation flags, repair status, fallback status, and the current unsupported-claim check level.
 
 Grounded report output fields are `headline`, `summary`, `strengths`, `commonPoints`, `differences`, `observationPoints`, `conversationQuestions`, and `disclaimer`.
+
+The MVP unsupported-claim validator is rule-based and limited. It rejects unsupported numbers, changed MBTI codes, diagnosis language, and financial product recommendation language, but it is not a full natural-language entailment checker.
 
 ## Deterministic Before Generative
 

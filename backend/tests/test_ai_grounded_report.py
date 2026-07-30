@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import pytest
+from pydantic import ValidationError
 
 from app.ai.exceptions import LLMTimeoutError
 from app.ai.grounded_report import (
@@ -86,6 +87,8 @@ def test_grounded_report_service_generates_valid_report_metadata() -> None:
     assert result.metadata.fallback_used is False
     assert result.metadata.repair_attempted is False
     assert result.metadata.validation["schema"] is True
+    assert result.metadata.validation["unsupportedClaims"] is False
+    assert result.metadata.validation["unsupportedClaimsCheck"] == "LIMITED"
     assert generator.calls == 1
 
 
@@ -122,6 +125,31 @@ def test_grounded_report_service_falls_back_on_timeout() -> None:
     assert result.metadata.model == "template"
 
 
+def test_template_fallback_accepts_period_number_in_basis_and_limitations() -> None:
+    report_input = GroundedReportInput(
+        spending_mbti="ENFP",
+        axis_scores={"EI": 0.64, "SN": 0.52, "TF": 0.48, "JP": 0.7},
+        confidence={"level": "MEDIUM", "score": 0.64},
+        evidence=(
+            EvidenceItem(
+                metric="CATEGORY_CONCENTRATION",
+                value=0.64,
+                basis="최근 12개월 동안 외식 카테고리가 64%였습니다.",
+            ),
+        ),
+        member_mbti_summary={"INTJ": 1, "ENFP": 1},
+        limitations=("최근 3개월 데이터만 사용했습니다.",),
+        result_status="PROVISIONAL",
+    )
+    service = GroundedReportService(generator=TimeoutGenerator())
+
+    result = service.generate(report_input)
+
+    assert result.metadata.fallback_used is True
+    assert "12개월" not in result.report.combined_text()
+    assert "3개월" not in result.report.combined_text()
+
+
 def test_validate_grounding_rejects_changed_mbti() -> None:
     report = parse_grounded_report(VALID_REPORT_JSON.replace("ENFP", "ISTJ", 1))
 
@@ -136,6 +164,29 @@ def test_validate_grounding_rejects_unsupported_number() -> None:
         validate_grounding(report, build_input())
 
 
+def test_number_from_unsent_sixth_evidence_is_rejected() -> None:
+    report_input = GroundedReportInput(
+        spending_mbti="ENFP",
+        axis_scores={"EI": 0.64, "SN": 0.52, "TF": 0.48, "JP": 0.7},
+        confidence={"level": "MEDIUM", "score": 0.64},
+        evidence=(
+            EvidenceItem("M1", 0.11, "M1 11%"),
+            EvidenceItem("M2", 0.22, "M2 22%"),
+            EvidenceItem("M3", 0.33, "M3 33%"),
+            EvidenceItem("M4", 0.44, "M4 44%"),
+            EvidenceItem("M5", 0.55, "M5 55%"),
+            EvidenceItem("M6", 0.66, "M6 66%"),
+        ),
+        member_mbti_summary={"INTJ": 1, "ENFP": 1},
+        limitations=("표본 기간이 짧습니다.",),
+        result_status="PROVISIONAL",
+    )
+    report = parse_grounded_report(VALID_REPORT_JSON.replace("64%", "66%", 1))
+
+    with pytest.raises(GroundedReportValidationError):
+        validate_grounding(report, report_input)
+
+
 def test_validate_grounding_rejects_prohibited_claims() -> None:
     report = parse_grounded_report(
         VALID_REPORT_JSON.replace("이 결과는", "투자 추천을 포함합니다. 이 결과는")
@@ -145,6 +196,29 @@ def test_validate_grounding_rejects_prohibited_claims() -> None:
         validate_grounding(report, build_input())
 
 
+def test_parse_grounded_report_rejects_unknown_output_field() -> None:
+    report_json = VALID_REPORT_JSON.replace(
+        '"disclaimer": "이 결과는 실제 성격 진단이나 금융 진단이 아니며 금융상품을 추천하지 않습니다."',
+        (
+            '"disclaimer": "이 결과는 실제 성격 진단이나 금융 진단이 아니며 금융상품을 추천하지 않습니다.",'
+            '"recommendedProduct": "프리미엄 카드"'
+        ),
+    )
+
+    with pytest.raises(ValidationError):
+        parse_grounded_report(report_json)
+
+
 def test_no_prohibited_ai_input_keys() -> None:
     with pytest.raises(GroundedReportValidationError):
         assert_no_prohibited_input({"email": "blocked@example.com"})
+
+
+def test_no_prohibited_ai_input_uses_structural_key_check() -> None:
+    assert_no_prohibited_input({"basis": "token과 nickname이라는 단어가 일반 문장에 있습니다."})
+
+    with pytest.raises(GroundedReportValidationError):
+        assert_no_prohibited_input({"confidence": {"contact": "blocked@example.com"}})
+
+    with pytest.raises(GroundedReportValidationError):
+        assert_no_prohibited_input({"confidence": {"level": "HIGH", "score": "blocked@example.com"}})

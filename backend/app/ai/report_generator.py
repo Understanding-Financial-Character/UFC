@@ -276,6 +276,7 @@ class OllamaQwenReportGenerator:
             "응답은 반드시 JSON 객체 하나만 출력하세요. "
             "필수 키는 headline, summary, strengths, commonPoints, differences, "
             "observationPoints, conversationQuestions, disclaimer 입니다. "
+            "정의된 8개 키 외의 추가 키는 절대 출력하지 마세요. "
             "strengths, commonPoints, differences, observationPoints, conversationQuestions는 "
             "문자열 배열이어야 합니다. "
             "소비 MBTI를 다시 계산하거나 변경하지 마세요.\n"

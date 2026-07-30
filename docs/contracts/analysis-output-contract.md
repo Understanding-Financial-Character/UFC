@@ -105,13 +105,13 @@ Required report fields:
 
 Validation requirements:
 
-- Pydantic schema validation.
-- Numeric evidence consistency check.
-- Unsupported claim check.
+- Strict Pydantic schema validation. Unknown output fields are rejected.
+- Numeric evidence consistency check against the same top evidence prompt context sent to Qwen3.
+- Limited unsupported claim check. MVP validation records `unsupportedClaims=false` and `unsupportedClaimsCheck=LIMITED` because full natural-language entailment is out of scope.
 - Real personality or financial diagnosis wording check.
 - Financial product recommendation check.
 - JSON parse/schema failure gets one repair attempt.
-- Repeated failure, timeout, or provider failure returns template fallback.
+- Repeated failure, timeout, or provider failure returns template fallback that is built from structured metric/value fields instead of raw evidence text.
 - Metadata records prompt version, model, latency, fallback status, repair status, and validation flags.
 
 Qwen3 must not recalculate or change the supplied spending MBTI.
