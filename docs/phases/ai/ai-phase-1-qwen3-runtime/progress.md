@@ -1,20 +1,30 @@
 # AI Phase 1 - Qwen3 Runtime Progress
 
 ## Current Status
-NOT_STARTED
+VERIFYING
 ## Implemented
-None.
+- `ReportGenerator` protocol.
+- `OllamaQwenReportGenerator`.
+- `FakeReportGenerator`.
+- `TemplateReportGenerator`.
+- LLM provider factory.
+- Optional `ollama_with_template_fallback` provider policy.
+- LLM temperature and timeout settings.
+- Ollama `/api/tags` model health check.
+- Direct `/api/generate` call path with HTTP error classification.
+- Non-thinking mode and conservative generation options.
 ## Remaining
-All Qwen runtime work.
+Commit, push, open PR, and record PR number.
 ## Contract Changes
-Pending.
+AI runtime provider boundary documented. No DB or API response contract changes.
 ## Migration Changes
 None expected.
 ## Linked PR
 Not assigned.
 ## Commits
-None.
+- `fac064b` feat: add qwen3 ollama report runtime
+- `5bd791e` fix: harden ollama runtime error handling
 ## Blockers
-Analysis contracts not complete.
+None.
 ## Handover Notes
-Optional Compose `ai` profile exists for future use only.
+Prompt finalization, orchestration hookup, and report persistence remain out of scope.
