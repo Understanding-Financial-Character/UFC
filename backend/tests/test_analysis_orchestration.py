@@ -38,6 +38,15 @@ class JsonReportGenerator:
         )
 
 
+class CountingReportGenerator(JsonReportGenerator):
+    def __init__(self) -> None:
+        self.call_count = 0
+
+    def generate(self, request: ReportGenerationRequest) -> ReportGenerationResult:
+        self.call_count += 1
+        return super().generate(request)
+
+
 def patch_report_generator(monkeypatch) -> None:
     monkeypatch.setattr(
         analysis_service,
@@ -189,7 +198,7 @@ def test_active_analysis_blocks_new_run(monkeypatch) -> None:
     assert response.json()["error"]["code"] == "ANALYSIS_ALREADY_RUNNING"
 
 
-def test_retry_analysis_creates_new_run_for_same_period(monkeypatch) -> None:
+def test_retry_analysis_rejects_completed_run(monkeypatch) -> None:
     patch_report_generator(monkeypatch)
     client = build_sqlite_client()
     user, group = setup_ready_group_with_transactions(client)
@@ -206,6 +215,98 @@ def test_retry_analysis_creates_new_run_for_same_period(monkeypatch) -> None:
         headers=auth_headers(user),
     )
 
-    assert retry_response.status_code == 202
-    assert retry_response.json()["analysis_id"] != first_response.json()["analysis_id"]
-    assert retry_response.json()["group_id"] == str(group["group_id"])
+    assert retry_response.status_code == 409
+    assert retry_response.json()["error"]["code"] == "ANALYSIS_RETRY_NOT_ALLOWED"
+
+
+def test_insufficient_data_does_not_call_report_generator(monkeypatch) -> None:
+    report_generator = CountingReportGenerator()
+    monkeypatch.setattr(
+        analysis_service,
+        "build_report_generator",
+        lambda _settings: report_generator,
+    )
+    client = build_sqlite_client()
+    user = create_user(client)
+    group = create_group(client, user)
+    add_member(client, user, str(group["group_id"]), "member-1", "ENFP")
+    add_member(client, user, str(group["group_id"]), "member-2", "ISTJ")
+
+    response = client.post(
+        f"/api/v1/groups/{group['group_id']}/analyses",
+        headers=auth_headers(user),
+        json={"period_start": "2026-07-01", "period_end": "2026-07-15"},
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert body["status"] == "COMPLETED"
+    assert body["result_status"] == "INSUFFICIENT_DATA"
+    assert body["ai_report"] is None
+    assert body["consumption_mbti_result"] is not None
+    assert report_generator.call_count == 0
+
+
+def test_analysis_period_uses_kst_calendar_boundaries() -> None:
+    client = build_sqlite_client()
+    user = create_user(client)
+    group = create_group(client, user)
+    first_member = add_member(client, user, str(group["group_id"]), "member-1", "ENFP")
+    second_member = add_member(client, user, str(group["group_id"]), "member-2", "ISTJ")
+    category_id = client.get("/api/v1/categories").json()[0]["category_id"]
+    output = StringIO()
+    fieldnames = [
+        "group_id",
+        "member_id",
+        "category_id",
+        "transaction_at",
+        "transaction_type",
+        "amount",
+        "merchant_name",
+        "is_shared_expense",
+        "is_planned",
+        "is_recurring",
+        "is_excluded",
+        "source_row_key",
+    ]
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer.writeheader()
+    rows = [
+        ("before", "2026-06-30T23:59:00+09:00"),
+        ("start", "2026-07-01T00:00:00+09:00"),
+        ("end", "2026-07-15T23:59:00+09:00"),
+        ("after", "2026-07-16T00:00:00+09:00"),
+    ]
+    for index, (key, occurred_at) in enumerate(rows):
+        writer.writerow(
+            {
+                "group_id": str(group["group_id"]),
+                "member_id": str([first_member["member_id"], second_member["member_id"]][index % 2]),
+                "category_id": str(category_id),
+                "transaction_at": occurred_at,
+                "transaction_type": "WITHDRAWAL",
+                "amount": "1000",
+                "merchant_name": f"merchant-{key}",
+                "is_shared_expense": "true",
+                "is_planned": "true",
+                "is_recurring": "false",
+                "is_excluded": "false",
+                "source_row_key": f"kst-boundary-{key}",
+            }
+        )
+    import_response = client.post(
+        f"/api/v1/groups/{group['group_id']}/transactions/import",
+        headers=auth_headers(user),
+        json={"csv_text": output.getvalue()},
+    )
+    assert import_response.status_code == 201
+
+    response = client.post(
+        f"/api/v1/groups/{group['group_id']}/analyses",
+        headers=auth_headers(user),
+        json={"period_start": "2026-07-01", "period_end": "2026-07-15"},
+    )
+
+    assert response.status_code == 202
+    metadata = response.json()["consumption_mbti_result"]["metadata"]
+    assert metadata["dataQuality"]["included_count"] == 2

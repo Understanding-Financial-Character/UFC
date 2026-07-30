@@ -54,6 +54,7 @@ class AnalysisResultRepository:
     def create_analysis_run(
         self,
         *,
+        analysis_run_id: str | None = None,
         group_id: str,
         analysis_period_started_at: datetime,
         analysis_period_ended_at: datetime,
@@ -62,6 +63,8 @@ class AnalysisResultRepository:
         input_schema_version: str,
         analysis_version: str,
         snapshot_hash: str,
+        analysis_input_snapshot: dict[str, Any],
+        retried_from_analysis_id: str | None = None,
         error_code: str | None = None,
         error_message: str | None = None,
         status: AnalysisRunStatus = AnalysisRunStatus.READY,
@@ -73,7 +76,10 @@ class AnalysisResultRepository:
         self._validate_nonblank("snapshot_hash", snapshot_hash)
         if analysis_period_started_at > analysis_period_ended_at:
             raise ValueError("analysis_period_started_at must be before or equal to analysis_period_ended_at.")
+        if not analysis_input_snapshot:
+            raise ValueError("analysis_input_snapshot must not be empty.")
         run = AnalysisRun(
+            id=analysis_run_id,
             group_id=group_id,
             status=status,
             result_status=None,
@@ -85,6 +91,8 @@ class AnalysisResultRepository:
             input_schema_version=input_schema_version,
             analysis_version=analysis_version,
             snapshot_hash=snapshot_hash,
+            analysis_input_snapshot=analysis_input_snapshot,
+            retried_from_analysis_id=retried_from_analysis_id,
             error_code=error_code,
             error_message=error_message,
         )

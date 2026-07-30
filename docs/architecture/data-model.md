@@ -129,7 +129,9 @@ Owns analysis execution lifecycle and result quality:
 - `is_synthetic`: run-level synthetic marker
 - `input_schema_version`: analysis input contract version
 - `analysis_version`: backend analysis pipeline version
-- `snapshot_hash`: source snapshot hash used for reproducibility
+- `snapshot_hash`: minimized analysis input snapshot hash used for reproducibility
+- `analysis_input_snapshot`: immutable, minimized `AnalysisInput` JSON used by deterministic analysis
+- `retried_from_analysis_id`: original failed analysis id when a retry run reuses the stored snapshot
 - `error_code`, `error_message`: execution failure details when applicable
 
 `status` values:

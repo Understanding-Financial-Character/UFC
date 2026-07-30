@@ -710,10 +710,13 @@ Field rules:
 
 - `period_start`: ISO 8601 date, required
 - `period_end`: ISO 8601 date, required, must be greater than or equal to `period_start`
+- Date-only analysis periods are interpreted in the canonical analysis timezone `Asia/Seoul`, then converted to UTC for persistence and transaction lookup.
 - `status`: enum, required, one of `READY`, `ANALYZING`, `REPORT_GENERATING`, `COMPLETED`, `PARTIALLY_COMPLETED`, `COMPLETED_WITH_FALLBACK`, `FAILED`, plus legacy persistence states `PENDING`, `RUNNING`
 - `GROUP_NOT_READY`: returned when the group does not have 2-4 members with MBTI.
 - `ANALYSIS_ALREADY_RUNNING`: returned when an active run already exists for the group.
 - Backend converts persisted transactions to pure `AnalysisInput` DTOs before calling analysis code.
+- Backend stores a minimized immutable analysis input snapshot internally and returns only `snapshot_hash` through the API.
+- If deterministic analysis returns `INSUFFICIENT_DATA`, AI report generation is skipped and `ai_report` remains `null`.
 - Qwen3 receives only grounded aggregate evidence and never raw transaction arrays.
 
 ### Get Analysis
@@ -788,9 +791,9 @@ Response: same as Get Analysis.
 - Idempotency: Not required
 - Resource owner: Group owner
 - Success status: `202 Accepted`
-- Error codes: `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `ANALYSIS_ALREADY_RUNNING`, `INTERNAL_ERROR`
+- Error codes: `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `ANALYSIS_ALREADY_RUNNING`, `ANALYSIS_RETRY_NOT_ALLOWED`, `INTERNAL_ERROR`
 
-Retry creates a new analysis run for the original run's group and analysis period.
+Retry is allowed only for `FAILED` runs. It creates a new analysis run linked to the original run and reuses the original persisted analysis input snapshot instead of reading the latest transactions again.
 
 ### Get AI Report
 

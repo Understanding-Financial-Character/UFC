@@ -122,6 +122,10 @@ class AnalysisRun(Base):
     input_schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
     analysis_version: Mapped[str] = mapped_column(String(40), nullable=False)
     snapshot_hash: Mapped[str] = mapped_column(String(128), nullable=False)
+    analysis_input_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False)
+    retried_from_analysis_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analysis_runs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
     error_message: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

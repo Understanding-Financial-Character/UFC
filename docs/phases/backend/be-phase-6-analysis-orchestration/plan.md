@@ -17,13 +17,13 @@ New metric formulas, rule definitions, frontend UI.
 ## Contracts
 Analysis run API contracts.
 ## Data Changes
-No new tables beyond BE Phase 5 unless explicitly approved.
+Extends `analysis_runs` with minimized `analysis_input_snapshot` JSON and nullable `retried_from_analysis_id` for failed-run snapshot retries.
 ## Security Considerations
 Owner checks on analysis and report resources.
 ## Implementation Tasks
-Implemented orchestration services, analysis APIs, state transition persistence, retry flow, and tests.
+Implemented orchestration services, analysis APIs, state transition persistence, insufficient-data AI skip, snapshot-backed retry policy, and tests.
 ## Test Scenarios
-Success, insufficient data, AI failure, owner denial.
+Success, insufficient data without AI generation, KST period boundaries, retry policy, AI failure, owner denial.
 ## Completion Criteria
 End-to-end backend analysis path verified with synchronous MVP execution.
 ## Branch

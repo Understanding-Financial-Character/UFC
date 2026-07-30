@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
 from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import Select, select
 from sqlalchemy.orm import Session, selectinload
@@ -36,7 +39,11 @@ from app.analysis.contracts import (
     ResultStatus,
     RuleEngineInput,
 )
-from app.analysis.preprocessing.normalizer import normalize_datetime, preprocess_analysis_input
+from app.analysis.preprocessing.normalizer import (
+    normalize_datetime,
+    normalize_merchant_key,
+    preprocess_analysis_input,
+)
 from app.analysis.rules.scorer import score_consumption_mbti
 from app.core.config import settings
 from app.core.exceptions import ApiException
@@ -64,6 +71,8 @@ from app.modules.transactions.models import (
 
 ANALYSIS_VERSION = "be-orchestration-v1"
 AI_REPORT_SCHEMA_VERSION = "grounded-ai-report-v1"
+ANALYSIS_TIMEZONE = ZoneInfo("Asia/Seoul")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -103,17 +112,21 @@ def execute_group_analysis(
     transaction_rows = load_transaction_rows(db, group.id, period)
     source_type = infer_analysis_source_type(tuple(row[0] for row in transaction_rows))
     is_synthetic = source_type in SYNTHETIC_SOURCE_TYPES
+    analysis_run_id = str(uuid.uuid4())
     analysis_input = build_analysis_input(
+        analysis_id=analysis_run_id,
         group=group,
         period=period,
         transaction_rows=transaction_rows,
         source_type=source_type,
         is_synthetic=is_synthetic,
     )
-    snapshot_hash = calculate_snapshot_hash(analysis_input)
+    analysis_input_snapshot = build_analysis_input_snapshot(analysis_input)
+    snapshot_hash = calculate_snapshot_hash(analysis_input_snapshot)
 
     repository = AnalysisResultRepository(db)
     analysis_run = repository.create_analysis_run(
+        analysis_run_id=analysis_run_id,
         group_id=group.id,
         analysis_period_started_at=period.started_at,
         analysis_period_ended_at=period.ended_at,
@@ -122,12 +135,37 @@ def execute_group_analysis(
         input_schema_version=analysis_input.schema_version,
         analysis_version=ANALYSIS_VERSION,
         snapshot_hash=snapshot_hash,
+        analysis_input_snapshot=analysis_input_snapshot,
         status=AnalysisRunStatus.READY,
     )
     db.commit()
+    return execute_analysis_run_from_input(
+        db=db,
+        repository=repository,
+        analysis_run=analysis_run,
+        group=group,
+        analysis_input=analysis_input,
+        source_type=source_type,
+        report_service=report_service,
+    )
+
+
+def execute_analysis_run_from_input(
+    *,
+    db: Session,
+    repository: AnalysisResultRepository,
+    analysis_run: AnalysisRun,
+    group: Group,
+    analysis_input: AnalysisInput,
+    source_type: AnalysisSourceType,
+    report_service: GroundedReportService | None,
+) -> AnalysisExecutionResult:
+    period = analysis_input.analysis_period
 
     try:
         repository.update_analysis_run_status(analysis_run.id, status=AnalysisRunStatus.ANALYZING)
+        db.commit()
+
         preprocessing_result = preprocess_analysis_input(analysis_input)
         behavior_metrics_result = calculate_behavior_metrics(
             BehaviorMetricsInput(
@@ -171,6 +209,15 @@ def execute_group_analysis(
             limitations=preprocessing_result.limitations,
             data_quality=preprocessing_result.data_quality_report.__dict__,
         )
+        if result_status == ResultStatus.INSUFFICIENT_DATA:
+            db.commit()
+            return AnalysisExecutionResult(
+                analysis_run=refresh_analysis_run(db, analysis_run.id),
+                behavior_metrics=behavior_metrics,
+                consumption_mbti_result=consumption_result,
+                ai_report=None,
+            )
+
         repository.update_analysis_run_status(
             analysis_run.id,
             status=AnalysisRunStatus.REPORT_GENERATING,
@@ -183,6 +230,8 @@ def execute_group_analysis(
             analysis_run=analysis_run,
             group=group,
             rule_result=rule_result,
+            result_status=result_status,
+            provisional_reasons=provisional_reasons,
             limitations=preprocessing_result.limitations,
             report_service=report_service,
         )
@@ -200,14 +249,21 @@ def execute_group_analysis(
             consumption_mbti_result=consumption_result,
             ai_report=ai_report,
         )
-    except (RuntimeError, TypeError, ValueError) as exc:
+    except Exception as exc:
         db.rollback()
-        repository.fail_analysis_run(
-            analysis_run.id,
-            error_code="ANALYSIS_EXECUTION_FAILED",
-            error_message=type(exc).__name__,
-        )
-        db.commit()
+        try:
+            repository.fail_analysis_run(
+                analysis_run.id,
+                error_code="ANALYSIS_EXECUTION_FAILED",
+                error_message=type(exc).__name__,
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception(
+                "Failed to persist analysis failure state.",
+                extra={"analysis_run_id": analysis_run.id},
+            )
         raise
 
 
@@ -219,12 +275,38 @@ def retry_analysis(
     report_service: GroundedReportService | None = None,
 ) -> AnalysisExecutionResult:
     analysis_run = require_owned_analysis_run(db, analysis_run_id, owner_user_id)
-    return execute_group_analysis(
-        db,
-        group_id=analysis_run.group_id,
-        owner_user_id=owner_user_id,
-        period_start=analysis_run.analysis_period_started_at.date(),
-        period_end=analysis_run.analysis_period_ended_at.date(),
+    if analysis_run.status != AnalysisRunStatus.FAILED:
+        raise ApiException(
+            code="ANALYSIS_RETRY_NOT_ALLOWED",
+            message="Only failed analyses can be retried.",
+            status_code=409,
+        )
+    group = get_owned_group_for_update(db, analysis_run.group_id, owner_user_id)
+    prevent_concurrent_analysis(db, group.id)
+    analysis_input = analysis_input_from_snapshot(analysis_run.analysis_input_snapshot)
+    repository = AnalysisResultRepository(db)
+    retry_run = repository.create_analysis_run(
+        analysis_run_id=str(uuid.uuid4()),
+        group_id=group.id,
+        analysis_period_started_at=analysis_run.analysis_period_started_at,
+        analysis_period_ended_at=analysis_run.analysis_period_ended_at,
+        source_type=analysis_run.source_type,
+        is_synthetic=analysis_run.is_synthetic,
+        input_schema_version=analysis_run.input_schema_version,
+        analysis_version=ANALYSIS_VERSION,
+        snapshot_hash=analysis_run.snapshot_hash,
+        analysis_input_snapshot=analysis_run.analysis_input_snapshot,
+        retried_from_analysis_id=analysis_run.id,
+        status=AnalysisRunStatus.READY,
+    )
+    db.commit()
+    return execute_analysis_run_from_input(
+        db=db,
+        repository=repository,
+        analysis_run=retry_run,
+        group=group,
+        analysis_input=analysis_input,
+        source_type=analysis_run.source_type,
         report_service=report_service,
     )
 
@@ -270,9 +352,11 @@ def prevent_concurrent_analysis(db: Session, group_id: str) -> None:
 
 
 def analysis_period_from_dates(period_start: date, period_end: date) -> AnalysisPeriod:
+    local_start = datetime.combine(period_start, time.min, tzinfo=ANALYSIS_TIMEZONE)
+    local_end = datetime.combine(period_end, time.max, tzinfo=ANALYSIS_TIMEZONE)
     return AnalysisPeriod(
-        started_at=datetime.combine(period_start, time.min, tzinfo=UTC),
-        ended_at=datetime.combine(period_end, time.max, tzinfo=UTC),
+        started_at=local_start.astimezone(UTC),
+        ended_at=local_end.astimezone(UTC),
     )
 
 
@@ -320,6 +404,7 @@ def infer_analysis_source_type(transactions: tuple[Transaction, ...]) -> Analysi
 
 def build_analysis_input(
     *,
+    analysis_id: str,
     group: Group,
     period: AnalysisPeriod,
     transaction_rows: list[tuple[Transaction, Category | None]],
@@ -327,7 +412,7 @@ def build_analysis_input(
     is_synthetic: bool,
 ) -> AnalysisInput:
     return AnalysisInput(
-        analysis_id="pending",
+        analysis_id=analysis_id,
         group_id=group.id,
         group_purpose_type=group_purpose_type(group.relationship_type),
         analysis_period=period,
@@ -361,7 +446,7 @@ def build_transaction_input(
         amount=transaction.amount,
         category_code=category.code if category is not None and category.is_active else None,
         behavior_group=behavior_group_from_category(category),
-        merchant_key=transaction.merchant_name,
+        merchant_key=normalize_merchant_key(transaction.merchant_name),
         transaction_type=analysis_transaction_type(transaction.transaction_type),
         is_shared_expense=transaction.is_shared_expense,
         is_planned=transaction.is_planned,
@@ -401,11 +486,13 @@ def ensure_aware_utc(value: datetime) -> datetime:
     return value
 
 
-def calculate_snapshot_hash(analysis_input: AnalysisInput) -> str:
-    payload = {
+def build_analysis_input_snapshot(analysis_input: AnalysisInput) -> dict[str, Any]:
+    return {
         "schemaVersion": analysis_input.schema_version,
+        "analysisId": analysis_input.analysis_id,
         "groupId": analysis_input.group_id,
-        "period": {
+        "groupPurposeType": analysis_input.group_purpose_type.value,
+        "analysisPeriod": {
             "startedAt": normalize_datetime(analysis_input.analysis_period.started_at).isoformat(),
             "endedAt": normalize_datetime(analysis_input.analysis_period.ended_at).isoformat(),
         },
@@ -436,7 +523,60 @@ def calculate_snapshot_hash(analysis_input: AnalysisInput) -> str:
             for transaction in analysis_input.transactions
         ],
     }
-    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+
+
+def analysis_input_from_snapshot(snapshot: dict[str, Any]) -> AnalysisInput:
+    period = snapshot["analysisPeriod"]
+    return AnalysisInput(
+        analysis_id=snapshot["analysisId"],
+        group_id=snapshot["groupId"],
+        group_purpose_type=GroupPurposeType(snapshot["groupPurposeType"]),
+        analysis_period=AnalysisPeriod(
+            started_at=datetime.fromisoformat(period["startedAt"]),
+            ended_at=datetime.fromisoformat(period["endedAt"]),
+        ),
+        source_type=AnalysisSourceType(snapshot["sourceType"]),
+        is_synthetic=bool(snapshot["isSynthetic"]),
+        members=tuple(
+            AnalysisMemberInput(
+                member_id=member["memberId"],
+                mbti_type=member["mbtiType"],
+            )
+            for member in snapshot["members"]
+        ),
+        transactions=tuple(
+            AnalysisTransactionInput(
+                transaction_id=transaction["transactionId"],
+                group_id=snapshot["groupId"],
+                member_id=transaction["memberId"],
+                occurred_at=datetime.fromisoformat(transaction["occurredAt"]),
+                amount=Decimal(transaction["amount"]),
+                category_code=transaction["categoryCode"],
+                behavior_group=(
+                    BehaviorGroup(transaction["behaviorGroup"])
+                    if transaction["behaviorGroup"] is not None
+                    else None
+                ),
+                merchant_key=transaction["merchantKey"],
+                transaction_type=AnalysisTransactionType(transaction["transactionType"]),
+                is_shared_expense=transaction["isSharedExpense"],
+                is_planned=transaction["isPlanned"],
+                is_recurring=transaction["isRecurring"],
+                source_type=(
+                    AnalysisSourceType(transaction["sourceType"])
+                    if transaction["sourceType"] is not None
+                    else None
+                ),
+                is_excluded=transaction["isExcluded"],
+            )
+            for transaction in snapshot["transactions"]
+        ),
+        schema_version=snapshot["schemaVersion"],
+    )
+
+
+def calculate_snapshot_hash(snapshot: dict[str, Any]) -> str:
+    encoded = json.dumps(snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -516,9 +656,12 @@ def save_consumption_result(
     limitations: tuple[str, ...],
     data_quality: dict[str, Any],
 ) -> ConsumptionMBTIResult:
+    mbti_type = None
+    if result_status != ResultStatus.INSUFFICIENT_DATA and rule_result.mbti_type:
+        mbti_type = ConsumptionMBTIType(rule_result.mbti_type)
     return repository.save_consumption_mbti_result(
         analysis_run_id=analysis_run_id,
-        mbti_type=ConsumptionMBTIType(rule_result.mbti_type) if rule_result.mbti_type else None,
+        mbti_type=mbti_type,
         ei_score=decimal_or_none(rule_result.axis_scores.get("EI")),
         sn_score=decimal_or_none(rule_result.axis_scores.get("SN")),
         tf_score=decimal_or_none(rule_result.axis_scores.get("TF")),
@@ -545,6 +688,8 @@ def generate_and_save_report(
     analysis_run: AnalysisRun,
     group: Group,
     rule_result: ConsumptionMbtiResult,
+    result_status: ResultStatus,
+    provisional_reasons: tuple[str, ...],
     limitations: tuple[str, ...],
     report_service: GroundedReportService | None,
 ) -> AIReport | None:
@@ -565,7 +710,7 @@ def generate_and_save_report(
                 evidence=tuple(evidence_item(item) for item in rule_result.primary_evidence),
                 member_mbti_summary=member_mbti_summary(group.members),
                 limitations=limitations,
-                result_status=rule_result.result_status.value,
+                result_status=result_status.value,
             )
         )
         return repository.save_ai_report(
@@ -586,7 +731,7 @@ def generate_and_save_report(
             failure_reason=None,
             schema_version=AI_REPORT_SCHEMA_VERSION,
         )
-    except (RuntimeError, TypeError, ValueError) as exc:
+    except Exception as exc:  # noqa: BLE001 - isolate provider/runtime report failures.
         db.rollback()
         repository.save_ai_report(
             analysis_run_id=analysis_run.id,
@@ -604,8 +749,8 @@ def generate_and_save_report(
         )
         repository.complete_analysis_run(
             analysis_run.id,
-            result_status=rule_result.result_status,
-            provisional_reasons=rule_result.provisional_reasons,
+            result_status=result_status,
+            provisional_reasons=provisional_reasons,
             status=AnalysisRunStatus.PARTIALLY_COMPLETED,
         )
         db.commit()

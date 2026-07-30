@@ -7,7 +7,9 @@ Create Date: 2026-07-30 00:00:00.000000
 
 from collections.abc import Sequence
 
+import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "20260730_0006"
 down_revision: str | None = "20260730_0005"
@@ -28,6 +30,36 @@ def upgrade() -> None:
             ):
                 op.execute(f"ALTER TYPE analysis_run_status ADD VALUE IF NOT EXISTS '{value}'")
 
+    json_type = postgresql.JSONB() if bind.dialect.name == "postgresql" else sa.JSON()
+    op.add_column(
+        "analysis_runs",
+        sa.Column(
+            "analysis_input_snapshot",
+            json_type,
+            nullable=False,
+            server_default=sa.text("'{}'"),
+        ),
+    )
+    op.alter_column("analysis_runs", "analysis_input_snapshot", server_default=None)
+    op.add_column(
+        "analysis_runs",
+        sa.Column("retried_from_analysis_id", sa.String(length=36), nullable=True),
+    )
+    op.create_foreign_key(
+        "fk_analysis_runs_retried_from_analysis_id",
+        "analysis_runs",
+        "analysis_runs",
+        ["retried_from_analysis_id"],
+        ["id"],
+        ondelete="SET NULL",
+    )
+    op.create_index(
+        op.f("ix_analysis_runs_retried_from_analysis_id"),
+        "analysis_runs",
+        ["retried_from_analysis_id"],
+        unique=False,
+    )
+
     op.drop_constraint(
         "ck_analysis_runs_result_status_lifecycle",
         "analysis_runs",
@@ -44,6 +76,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_index(op.f("ix_analysis_runs_retried_from_analysis_id"), table_name="analysis_runs")
+    op.drop_constraint(
+        "fk_analysis_runs_retried_from_analysis_id",
+        "analysis_runs",
+        type_="foreignkey",
+    )
+    op.drop_column("analysis_runs", "retried_from_analysis_id")
+    op.drop_column("analysis_runs", "analysis_input_snapshot")
+
     op.drop_constraint(
         "ck_analysis_runs_result_status_lifecycle",
         "analysis_runs",

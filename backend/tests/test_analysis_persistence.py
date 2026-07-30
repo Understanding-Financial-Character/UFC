@@ -30,8 +30,23 @@ from app.modules.analysis_results.models import (
 from app.modules.analysis_results.repository import AnalysisResultRepository
 from app.modules.groups.models import Group, RelationshipType
 from app.modules.users.models import User
+from app.orchestration import analysis_service
 
 SNAPSHOT_HASH = "a" * 64
+ANALYSIS_INPUT_SNAPSHOT = {
+    "schemaVersion": "analysis-input-v1",
+    "analysisId": "analysis-persistence-test",
+    "groupId": "group",
+    "groupPurposeType": "OTHER",
+    "analysisPeriod": {
+        "startedAt": "2026-07-01T00:00:00+00:00",
+        "endedAt": "2026-07-31T23:59:59.999999+00:00",
+    },
+    "sourceType": "CSV",
+    "isSynthetic": False,
+    "members": [],
+    "transactions": [],
+}
 
 
 @pytest.fixture
@@ -83,6 +98,7 @@ def create_run(
         input_schema_version="analysis-input-v1",
         analysis_version="analysis-persistence-test-v1",
         snapshot_hash=SNAPSHOT_HASH,
+        analysis_input_snapshot=ANALYSIS_INPUT_SNAPSHOT,
     )
     if result_status is not None:
         repository.complete_analysis_run(
@@ -110,10 +126,12 @@ def test_analysis_run_lifecycle_separates_execution_and_result_status(db: Sessio
         input_schema_version="analysis-input-v1",
         analysis_version="analysis-persistence-test-v1",
         snapshot_hash=SNAPSHOT_HASH,
+        analysis_input_snapshot=ANALYSIS_INPUT_SNAPSHOT,
     )
 
     assert analysis_run.status == AnalysisRunStatus.READY
     assert analysis_run.result_status is None
+    assert analysis_run.analysis_input_snapshot == ANALYSIS_INPUT_SNAPSHOT
 
     completed = repository.complete_analysis_run(
         analysis_run.id,
@@ -368,6 +386,7 @@ def test_database_constraints_reject_failed_run_with_result_status(db: Session) 
             input_schema_version="analysis-input-v1",
             analysis_version="analysis-persistence-test-v1",
             snapshot_hash=SNAPSHOT_HASH,
+            analysis_input_snapshot=ANALYSIS_INPUT_SNAPSHOT,
         )
     )
 
@@ -453,6 +472,41 @@ def test_result_status_and_ai_report_consistency_are_validated(db: Session) -> N
             failure_reason=None,
             schema_version="grounded-ai-report-v1",
         )
+
+
+def test_retry_failed_run_reuses_persisted_snapshot(db: Session) -> None:
+    group = seed_group(db)
+    repository = AnalysisResultRepository(db)
+    snapshot = {**ANALYSIS_INPUT_SNAPSHOT, "groupId": group.id}
+    failed_run = repository.create_analysis_run(
+        group_id=group.id,
+        analysis_period_started_at=datetime(2026, 7, 1, tzinfo=UTC),
+        analysis_period_ended_at=datetime(2026, 7, 31, 23, 59, 59, 999999, tzinfo=UTC),
+        source_type=AnalysisSourceType.CSV,
+        is_synthetic=False,
+        input_schema_version="analysis-input-v1",
+        analysis_version="analysis-persistence-test-v1",
+        snapshot_hash=SNAPSHOT_HASH,
+        analysis_input_snapshot=snapshot,
+    )
+    repository.fail_analysis_run(
+        failed_run.id,
+        error_code="ANALYSIS_EXECUTION_FAILED",
+        error_message="RuntimeError",
+    )
+    db.commit()
+
+    result = analysis_service.retry_analysis(
+        db,
+        analysis_run_id=failed_run.id,
+        owner_user_id=group.owner_user_id,
+    )
+
+    assert result.analysis_run.id != failed_run.id
+    assert result.analysis_run.retried_from_analysis_id == failed_run.id
+    assert result.analysis_run.snapshot_hash == failed_run.snapshot_hash
+    assert result.analysis_run.analysis_input_snapshot == snapshot
+    assert result.analysis_run.result_status == ResultStatus.INSUFFICIENT_DATA
 
 
 def test_postgres_analysis_persistence_schema_types() -> None:
