@@ -1,3 +1,4 @@
+import enum
 from datetime import datetime
 from decimal import Decimal
 
@@ -10,6 +11,17 @@ from app.modules.transactions.models import (
 )
 
 SCHEMA_VERSION = "1.0"
+
+
+class ImportStatus(str, enum.Enum):
+    COMPLETED = "COMPLETED"
+    PARTIALLY_COMPLETED = "PARTIALLY_COMPLETED"
+    FAILED = "FAILED"
+
+
+class ImportRowStatus(str, enum.Enum):
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
 
 
 class CategoryResponse(BaseModel):
@@ -35,7 +47,7 @@ class RowValidationError(BaseModel):
 class TransactionImportRowResult(BaseModel):
     row_number: int
     source_row_key: str | None = None
-    status: str
+    status: ImportRowStatus
     transaction_id: str | None = None
     errors: list[RowValidationError] = Field(default_factory=list)
 
@@ -46,7 +58,7 @@ class TransactionImportResponse(BaseModel):
     source_type: TransactionSourceType
     accepted_count: int
     rejected_count: int
-    status: str
+    status: ImportStatus
     rows: list[TransactionImportRowResult]
 
 

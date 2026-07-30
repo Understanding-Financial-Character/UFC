@@ -72,6 +72,8 @@ Implemented in BE Phase 4:
 
 `behavior_group` is retained as source metadata for later Feature Catalog work. BE Phase 4 does not calculate behavior features or MBTI scores.
 
+Seed data for the initial category set is owned by migration revision `20260730_0004` in `backend/migrations/data/20260730_0004_categories.csv`. Read APIs must not insert or repair category seed rows.
+
 ### transactions
 
 Implemented in BE Phase 4 as normalized source transaction input.

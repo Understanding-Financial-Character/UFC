@@ -7,8 +7,10 @@ from decimal import Decimal, InvalidOperation
 from io import StringIO
 from pathlib import Path
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ApiException
@@ -29,7 +31,8 @@ from app.modules.transactions.schemas import (
 )
 
 FIXTURE_ROOT = Path(__file__).resolve().parent / "fixtures"
-CATEGORY_SEED_PATH = FIXTURE_ROOT / "categories_seed_v2.csv"
+BACKEND_ROOT = Path(__file__).resolve().parents[3]
+CATEGORY_SEED_PATH = BACKEND_ROOT / "migrations" / "data" / "20260730_0004_categories.csv"
 MOCK_TRANSACTION_PATH = FIXTURE_ROOT / "transactions_mock_v2.csv"
 MOCK_SCENARIOS = {
     "mock-v2": {
@@ -39,14 +42,12 @@ MOCK_SCENARIOS = {
 }
 
 ALLOWED_CSV_FIELDS = {
-    "id",
     "group_id",
     "member_id",
     "category_id",
     "transaction_at",
     "transaction_type",
     "amount",
-    "currency_code",
     "merchant_name",
     "description",
     "is_shared_expense",
@@ -54,12 +55,7 @@ ALLOWED_CSV_FIELDS = {
     "is_recurring",
     "is_excluded",
     "exclusion_reason",
-    "category_source",
-    "category_confidence",
-    "source_type",
     "source_row_key",
-    "created_at",
-    "updated_at",
 }
 SENSITIVE_FIELD_HINTS = {"account", "card", "bank_auth", "access_token", "refresh_token"}
 
@@ -104,7 +100,6 @@ def ensure_seed_categories(db: Session) -> None:
 
 
 def list_categories(db: Session) -> list[Category]:
-    ensure_seed_categories(db)
     return list(
         db.scalars(
             select(Category)
@@ -130,7 +125,6 @@ def import_csv_transactions(
     db: Session, group_id: str, owner_user_id: str, csv_text: str
 ) -> TransactionImportResponse:
     group = get_owned_group(db, group_id, owner_user_id)
-    ensure_seed_categories(db)
     parsed_rows = parse_csv_text(csv_text, group.id)
     return persist_import_rows(db, group, parsed_rows, TransactionSourceType.CSV_UPLOAD)
 
@@ -141,7 +135,6 @@ def apply_mock_scenario(
     if scenario_id not in MOCK_SCENARIOS:
         raise ApiException(code="NOT_FOUND", message="Mock scenario was not found.", status_code=404)
     group = get_owned_group(db, group_id, owner_user_id)
-    ensure_seed_categories(db)
     mock_rows = read_mock_transaction_rows()
     rows = [row for row in mock_rows if row.get("group_id") == group.id]
     if not rows:
@@ -201,6 +194,8 @@ def update_transaction(
         transaction.is_recurring = payload.is_recurring
     if "is_excluded" in fields and payload.is_excluded is not None:
         transaction.is_excluded = payload.is_excluded
+        if payload.is_excluded is False and "exclusion_reason" not in fields:
+            transaction.exclusion_reason = None
     if "exclusion_reason" in fields:
         transaction.exclusion_reason = payload.exclusion_reason
 
@@ -264,8 +259,10 @@ def parse_row(
     row_number: int, row: dict[str, Any], expected_group_id: str
 ) -> ParsedTransactionRow | TransactionImportRowResult:
     errors: list[RowValidationError] = []
-    source_row_key = normalize_text(row.get("source_row_key"), 120)
-    row_group_id = normalize_text(row.get("group_id"), 36)
+    source_row_key = parse_optional_text(
+        row.get("source_row_key"), field="source_row_key", max_length=120, errors=errors
+    )
+    row_group_id = parse_uuid_field(row.get("group_id"), field="group_id", errors=errors)
     if row_group_id is not None and row_group_id != expected_group_id:
         errors.append(
             RowValidationError(
@@ -279,15 +276,21 @@ def parse_row(
         row.get("transaction_type"), TransactionType, "transaction_type", errors
     )
     amount = parse_amount(row.get("amount"), errors)
-    category_id = normalize_text(row.get("category_id"), 36)
-    member_id = normalize_text(row.get("member_id"), 36)
-    merchant_name = normalize_text(row.get("merchant_name"), 120)
-    description = normalize_text(row.get("description"), 255)
+    category_id = parse_uuid_field(row.get("category_id"), field="category_id", errors=errors)
+    member_id = parse_uuid_field(row.get("member_id"), field="member_id", errors=errors)
+    merchant_name = parse_optional_text(
+        row.get("merchant_name"), field="merchant_name", max_length=120, errors=errors
+    )
+    description = parse_optional_text(
+        row.get("description"), field="description", max_length=255, errors=errors
+    )
     is_shared_expense = parse_nullable_bool(row.get("is_shared_expense"), "is_shared_expense", errors)
     is_planned = parse_nullable_bool(row.get("is_planned"), "is_planned", errors)
     is_recurring = parse_nullable_bool(row.get("is_recurring"), "is_recurring", errors)
     is_excluded = parse_bool_default(row.get("is_excluded"), "is_excluded", False, errors)
-    exclusion_reason = normalize_text(row.get("exclusion_reason"), 255)
+    exclusion_reason = parse_optional_text(
+        row.get("exclusion_reason"), field="exclusion_reason", max_length=255, errors=errors
+    )
 
     if is_excluded and exclusion_reason is None:
         errors.append(
@@ -346,13 +349,7 @@ def persist_import_rows(
         validate_active_member_id(db, group.id, row.member_id, errors)
         if row.source_row_key is not None:
             if row.source_row_key in existing_keys or row.source_row_key in batch_keys:
-                errors.append(
-                    RowValidationError(
-                        field="source_row_key",
-                        code="DUPLICATE_SOURCE_ROW_KEY",
-                        message="source_row_key already exists for this group.",
-                    )
-                )
+                errors.append(duplicate_source_row_key_error())
             batch_keys.add(row.source_row_key)
         if errors:
             results.append(
@@ -365,25 +362,39 @@ def persist_import_rows(
             )
             continue
 
-        transaction = Transaction(
-            group_id=group.id,
-            member_id=row.member_id,
-            category_id=row.category_id,
-            transaction_at=row.transaction_at,
-            transaction_type=row.transaction_type,
-            amount=row.amount,
-            merchant_name=row.merchant_name,
-            description=row.description,
-            is_shared_expense=row.is_shared_expense,
-            is_planned=row.is_planned,
-            is_recurring=row.is_recurring,
-            is_excluded=row.is_excluded,
-            exclusion_reason=row.exclusion_reason,
-            source_type=source_type,
-            source_row_key=row.source_row_key,
-        )
-        db.add(transaction)
-        db.flush()
+        try:
+            with db.begin_nested():
+                transaction = Transaction(
+                    group_id=group.id,
+                    member_id=row.member_id,
+                    category_id=row.category_id,
+                    transaction_at=row.transaction_at,
+                    transaction_type=row.transaction_type,
+                    amount=row.amount,
+                    merchant_name=row.merchant_name,
+                    description=row.description,
+                    is_shared_expense=row.is_shared_expense,
+                    is_planned=row.is_planned,
+                    is_recurring=row.is_recurring,
+                    is_excluded=row.is_excluded,
+                    exclusion_reason=row.exclusion_reason,
+                    source_type=source_type,
+                    source_row_key=row.source_row_key,
+                )
+                db.add(transaction)
+                db.flush()
+        except IntegrityError as exc:
+            if is_source_row_key_conflict(exc):
+                results.append(
+                    TransactionImportRowResult(
+                        row_number=row.row_number,
+                        source_row_key=row.source_row_key,
+                        status="REJECTED",
+                        errors=[duplicate_source_row_key_error()],
+                    )
+                )
+                continue
+            raise
         results.append(
             TransactionImportRowResult(
                 row_number=row.row_number,
@@ -486,11 +497,19 @@ def build_mock_member_map(rows: list[dict[str, str]], group: Group) -> dict[str 
     active_member_ids = [
         member.id for member in group.members if member.status == GroupMemberStatus.ACTIVE
     ]
-    if not active_member_ids:
-        return {}
     unique_source_members = sorted({row.get("member_id") for row in rows if row.get("member_id")})
+    if len(active_member_ids) != len(unique_source_members):
+        raise ApiException(
+            code="MOCK_MEMBER_COUNT_MISMATCH",
+            message=f"This mock scenario requires {len(unique_source_members)} active members.",
+            status_code=409,
+            details={
+                "required_active_member_count": len(unique_source_members),
+                "active_member_count": len(active_member_ids),
+            },
+        )
     return {
-        source_member_id: active_member_ids[index % len(active_member_ids)]
+        source_member_id: active_member_ids[index]
         for index, source_member_id in enumerate(unique_source_members)
     }
 
@@ -508,19 +527,29 @@ def rejected_row(
 
 def parse_required_bool(raw_value: object) -> bool:
     value = str(raw_value).strip().lower()
-    return value in {"true", "1", "yes", "y"}
+    if value in {"true", "1", "yes", "y"}:
+        return True
+    if value in {"false", "0", "no", "n"}:
+        return False
+    raise ValueError(f"Invalid required boolean: {raw_value}")
 
 
 def parse_datetime(raw_value: object) -> datetime:
-    return datetime.fromisoformat(str(raw_value).strip())
+    parsed = datetime.fromisoformat(str(raw_value).strip())
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("timezone offset is required")
+    return parsed
 
 
 def parse_datetime_field(
     raw_value: object, field: str, errors: list[RowValidationError]
 ) -> datetime | None:
-    value = normalize_text(raw_value, 80)
+    value = parse_optional_text(raw_value, field=field, max_length=80, errors=errors)
     if value is None:
-        errors.append(RowValidationError(field=field, code="REQUIRED", message=f"{field} is required."))
+        if is_blank(raw_value):
+            errors.append(
+                RowValidationError(field=field, code="REQUIRED", message=f"{field} is required.")
+            )
         return None
     try:
         return parse_datetime(value)
@@ -541,9 +570,12 @@ def parse_enum_field(
     field: str,
     errors: list[RowValidationError],
 ) -> TransactionType | None:
-    value = normalize_text(raw_value, 40)
+    value = parse_optional_text(raw_value, field=field, max_length=40, errors=errors)
     if value is None:
-        errors.append(RowValidationError(field=field, code="REQUIRED", message=f"{field} is required."))
+        if is_blank(raw_value):
+            errors.append(
+                RowValidationError(field=field, code="REQUIRED", message=f"{field} is required.")
+            )
         return None
     try:
         return enum_type(value)
@@ -559,13 +591,28 @@ def parse_enum_field(
 
 
 def parse_amount(raw_value: object, errors: list[RowValidationError]) -> Decimal | None:
-    value = normalize_text(raw_value, 40)
+    value = parse_optional_text(raw_value, field="amount", max_length=40, errors=errors)
     if value is None:
-        errors.append(RowValidationError(field="amount", code="REQUIRED", message="amount is required."))
+        if is_blank(raw_value):
+            errors.append(
+                RowValidationError(field="amount", code="REQUIRED", message="amount is required.")
+            )
         return None
     try:
         amount = Decimal(value)
-    except InvalidOperation:
+        if not amount.is_finite():
+            raise InvalidOperation
+        if amount <= 0:
+            errors.append(
+                RowValidationError(
+                    field="amount",
+                    code="AMOUNT_NOT_POSITIVE",
+                    message="amount must be positive.",
+                )
+            )
+            return None
+        return amount.quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError):
         errors.append(
             RowValidationError(
                 field="amount",
@@ -574,22 +621,12 @@ def parse_amount(raw_value: object, errors: list[RowValidationError]) -> Decimal
             )
         )
         return None
-    if amount <= 0:
-        errors.append(
-            RowValidationError(
-                field="amount",
-                code="AMOUNT_NOT_POSITIVE",
-                message="amount must be positive.",
-            )
-        )
-        return None
-    return amount.quantize(Decimal("0.01"))
 
 
 def parse_nullable_bool(
     raw_value: object, field: str, errors: list[RowValidationError]
 ) -> bool | None:
-    value = normalize_text(raw_value, 20)
+    value = parse_optional_text(raw_value, field=field, max_length=20, errors=errors)
     if value is None:
         return None
     lowered = value.lower()
@@ -616,10 +653,61 @@ def parse_bool_default(
     return default if parsed is None else parsed
 
 
-def normalize_text(raw_value: object, max_length: int) -> str | None:
+def duplicate_source_row_key_error() -> RowValidationError:
+    return RowValidationError(
+        field="source_row_key",
+        code="DUPLICATE_SOURCE_ROW_KEY",
+        message="source_row_key already exists for this group.",
+    )
+
+
+def is_source_row_key_conflict(exc: IntegrityError) -> bool:
+    message = str(exc.orig)
+    return "uq_transactions_group_source_row_key" in message or "source_row_key" in message
+
+
+def parse_optional_text(
+    raw_value: object,
+    *,
+    field: str,
+    max_length: int,
+    errors: list[RowValidationError],
+) -> str | None:
     if raw_value is None:
         return None
     value = str(raw_value).strip()
     if not value:
         return None
-    return value[:max_length]
+    if len(value) > max_length:
+        errors.append(
+            RowValidationError(
+                field=field,
+                code="MAX_LENGTH_EXCEEDED",
+                message=f"{field} must not exceed {max_length} characters.",
+            )
+        )
+        return None
+    return value
+
+
+def parse_uuid_field(
+    raw_value: object, *, field: str, errors: list[RowValidationError]
+) -> str | None:
+    value = parse_optional_text(raw_value, field=field, max_length=36, errors=errors)
+    if value is None:
+        return None
+    try:
+        return str(UUID(value))
+    except ValueError:
+        errors.append(
+            RowValidationError(
+                field=field,
+                code="INVALID_UUID",
+                message=f"{field} must be a valid UUID.",
+            )
+        )
+        return None
+
+
+def is_blank(raw_value: object) -> bool:
+    return raw_value is None or not str(raw_value).strip()

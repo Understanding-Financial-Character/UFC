@@ -6,9 +6,12 @@ IMPLEMENTED
 - `categories` and `transactions` SQLAlchemy models.
 - `group_members.status` with `ACTIVE` membership validation for transaction member assignment.
 - Alembic migration `20260730_0004_transaction_input`.
-- Category seed fixture and service seed path.
+- Category seed fixture owned by immutable migration data.
 - CSV import API with row-level validation.
+- CSV contract narrowed to persisted fields only; unused fields such as currency and client-supplied source metadata are rejected.
+- Length overflow, invalid UUIDs, non-finite amounts, and timezone-less datetimes are rejected instead of silently normalized.
 - Mock scenario list/apply APIs using synthetic `transactions_mock_v2.csv`.
+- Mock scenario application now rejects member count mismatches instead of modulo-mapping source members.
 - Transaction list, update, and delete APIs.
 - Ownership checks through bearer-authenticated group owner validation.
 - Integration tests for required Phase 4 scenarios.

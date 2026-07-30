@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.dependencies import get_db
 from app.db.base import Base
 from app.main import create_app
+from app.modules.transactions.service import ensure_seed_categories
 
 
 def build_client(database_url: str = "sqlite+pysqlite:///:memory:") -> TestClient:
@@ -27,6 +28,8 @@ def build_client(database_url: str = "sqlite+pysqlite:///:memory:") -> TestClien
     )
     Base.metadata.create_all(bind=engine)
     testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    with testing_session_local() as seed_session:
+        ensure_seed_categories(seed_session)
     app = create_app()
 
     def override_get_db() -> Generator[Session, None, None]:

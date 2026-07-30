@@ -143,11 +143,9 @@ def seed_categories() -> None:
 
     seed_path = (
         Path(__file__).resolve().parents[2]
-        / "app"
-        / "modules"
-        / "transactions"
-        / "fixtures"
-        / "categories_seed_v2.csv"
+        / "migrations"
+        / "data"
+        / "20260730_0004_categories.csv"
     )
     categories_table = sa.table(
         "categories",

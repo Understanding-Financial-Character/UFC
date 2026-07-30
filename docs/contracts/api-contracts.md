@@ -483,7 +483,7 @@ Response:
 
 Field rules:
 
-- Categories are seeded from `backend/app/modules/transactions/fixtures/categories_seed_v2.csv`.
+- Categories are seeded by migration `20260730_0004` from immutable revision data at `backend/migrations/data/20260730_0004_categories.csv`.
 - `behavior_group` is stored for later analysis feature calculation, but BE Phase 4 does not calculate features or MBTI scores.
 - `behavior_group`: enum, one of `PRACTICAL`, `EXPERIENCE`, `RELATIONSHIP`, `REGULAR`, `SAVINGS`, `OTHER`.
 
@@ -584,15 +584,19 @@ Response:
 
 Field rules:
 
-- Accepted CSV fields: `id`, `group_id`, `member_id`, `category_id`, `transaction_at`, `transaction_type`, `amount`, `currency_code`, `merchant_name`, `description`, `is_shared_expense`, `is_planned`, `is_recurring`, `is_excluded`, `exclusion_reason`, `category_source`, `category_confidence`, `source_type`, `source_row_key`, `created_at`, `updated_at`.
+- Accepted CSV fields: `group_id`, `member_id`, `category_id`, `transaction_at`, `transaction_type`, `amount`, `merchant_name`, `description`, `is_shared_expense`, `is_planned`, `is_recurring`, `is_excluded`, `exclusion_reason`, `source_row_key`.
 - `transaction_type`: enum, required, one of `DEPOSIT`, `WITHDRAWAL`.
 - `amount`: positive decimal. Direction is represented only by `transaction_type`, not negative amounts.
+- All transaction amounts in the MVP CSV contract are interpreted as KRW. The CSV contract does not accept a currency field.
 - `is_shared_expense`, `is_planned`, and `is_recurring`: nullable booleans. Blank cells are persisted as `null`, not `false`.
 - `is_excluded`: boolean, defaults to false when the CSV cell is blank.
 - `exclusion_reason`: required when `is_excluded` is true.
 - `member_id`: optional; when present it must reference an `ACTIVE` member in the target group.
 - `category_id`: optional; when present it must reference an active category.
 - `source_row_key`: optional, but when present it must be unique within the same group.
+- `group_id`, `member_id`, and `category_id`: when present, must be valid UUID strings.
+- `transaction_at`: must include a timezone offset, for example `2026-07-01T10:00:00+09:00` or `2026-07-01T01:00:00Z`.
+- Text fields that exceed their contract length are rejected with row-level validation errors; values are not silently truncated.
 - CSV headers containing account, card, bank auth, or token-like fields are rejected. The backend must not log full CSV raw text.
 - `status`: enum, one of `COMPLETED`, `PARTIALLY_COMPLETED`, `FAILED`.
 
