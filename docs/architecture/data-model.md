@@ -145,11 +145,23 @@ Owns analysis execution lifecycle and result quality:
 - `PROVISIONAL`
 - `INSUFFICIENT_DATA`
 
+`result_status` is nullable while a run is `PENDING` or `RUNNING`. `COMPLETED` runs require a non-null `result_status`; `FAILED` runs may keep it null. `STANDARD` runs must not store provisional reasons, while `PROVISIONAL` and `INSUFFICIENT_DATA` runs require at least one provisional reason.
+
 Status: implemented in BE Phase 5.
 
 ### behavior_metrics
 
-Owns calculated feature and metric outputs. Each metric row stores `metric_code`, optional `metric_value`, availability state, evidence, schema/calculation version, and snapshot hash.
+Owns calculated AN Phase 2 feature outputs. Each row stores the complete `BehaviorFeatureResult` core contract:
+
+- `feature_code`
+- `status`
+- `raw_value`
+- `normalized_score`
+- `unit`
+- `sample_count`
+- `evidence`
+
+`normalized_score` is constrained to `0..1` and `sample_count` must be non-negative. `AVAILABLE` features require `raw_value` and `normalized_score`; `UNAVAILABLE` features require `unavailable_reason`.
 
 A single flat `contribution_weight` is not enough for axis contribution. Axis contribution data must be stored under `metric_metadata.axisContributions`:
 
@@ -166,7 +178,7 @@ A single flat `contribution_weight` is not enough for axis contribution. Axis co
 }
 ```
 
-Unavailable metrics keep `metric_value` as `NULL` and record an `unavailable_reason`. `NULL` metric values are not interpreted as zero.
+Unavailable metrics keep `raw_value` and `normalized_score` as `NULL` and record an `unavailable_reason`. `NULL` metric values are not interpreted as zero.
 
 Status: persistence implemented in BE Phase 5. Metric calculation remains Analysis work.
 
@@ -183,7 +195,7 @@ Axis score direction is fixed:
 
 These directions are also recorded in `backend/app/analysis/constants.py`.
 
-The table stores axis scores, confidence, coverage, limitations, result metadata, schema/rule version, snapshot hash, and the fixed axis score direction metadata. Repository validation rejects non-null `mbti_type` when the owning run has `result_status=INSUFFICIENT_DATA`.
+The table stores result status, axis scores, confidence, coverage, limitations, result metadata, schema/rule version, snapshot hash, and the fixed axis score direction metadata. It duplicates `result_status` from the owning run so DB constraints can reject non-null `mbti_type` for `INSUFFICIENT_DATA`.
 
 Status: persistence implemented in BE Phase 5. Rule calculation remains Analysis work.
 
@@ -197,8 +209,8 @@ Report status values:
 - `FALLBACK_COMPLETED`
 - `FAILED`
 
-The table must track fallback usage, model name, prompt version, and validation result.
+The table must track fallback usage, model name, prompt version, repair attempt status, and validation result.
 
-The table stores `report_content`, `fallback_used`, `fallback_reason`, `failure_reason`, `schema_version`, and `snapshot_hash`. `COMPLETED` and `FALLBACK_COMPLETED` require report content; `FAILED` requires a failure reason.
+The table stores `report_content`, `fallback_used`, `fallback_reason`, `repair_attempted`, `failure_reason`, `schema_version`, and `snapshot_hash`. `COMPLETED` requires `fallback_used=false`; `FALLBACK_COMPLETED` requires `fallback_used=true` and a fallback reason; `FAILED` requires no report content and a failure reason.
 
 Status: persistence implemented in BE Phase 5. Qwen execution remains AI/orchestration work.

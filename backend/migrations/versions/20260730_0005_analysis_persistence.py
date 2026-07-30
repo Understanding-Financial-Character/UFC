@@ -22,9 +22,9 @@ analysis_run_status = sa.Enum("PENDING", "RUNNING", "COMPLETED", "FAILED", name=
 analysis_result_status = sa.Enum(
     "STANDARD", "PROVISIONAL", "INSUFFICIENT_DATA", name="analysis_result_status"
 )
-analysis_source_type = sa.Enum(
-    "CSV_UPLOAD", "MOCK", "MANUAL_ENTRY", "INTERNAL_TEST", name="analysis_source_type"
-)
+analysis_source_type = sa.Enum("CSV", "MOCK", "MANUAL", "INTERNAL_TEST", name="analysis_source_type")
+behavior_feature_status = sa.Enum("AVAILABLE", "UNAVAILABLE", name="behavior_feature_status")
+behavior_feature_unit = sa.Enum("AMOUNT_RATIO", "COUNT_RATIO", "SCORE", name="behavior_feature_unit")
 consumption_mbti_type = sa.Enum(
     "ISTJ",
     "ISFJ",
@@ -57,12 +57,13 @@ analysis_result_status_column = postgresql.ENUM(
     create_type=False,
 )
 analysis_source_type_column = postgresql.ENUM(
-    "CSV_UPLOAD",
-    "MOCK",
-    "MANUAL_ENTRY",
-    "INTERNAL_TEST",
-    name="analysis_source_type",
-    create_type=False,
+    "CSV", "MOCK", "MANUAL", "INTERNAL_TEST", name="analysis_source_type", create_type=False
+)
+behavior_feature_status_column = postgresql.ENUM(
+    "AVAILABLE", "UNAVAILABLE", name="behavior_feature_status", create_type=False
+)
+behavior_feature_unit_column = postgresql.ENUM(
+    "AMOUNT_RATIO", "COUNT_RATIO", "SCORE", name="behavior_feature_unit", create_type=False
 )
 consumption_mbti_type_column = postgresql.ENUM(
     "ISTJ",
@@ -98,6 +99,8 @@ def upgrade() -> None:
     analysis_run_status.create(bind, checkfirst=True)
     analysis_result_status.create(bind, checkfirst=True)
     analysis_source_type.create(bind, checkfirst=True)
+    behavior_feature_status.create(bind, checkfirst=True)
+    behavior_feature_unit.create(bind, checkfirst=True)
     consumption_mbti_type.create(bind, checkfirst=True)
     ai_report_status.create(bind, checkfirst=True)
 
@@ -106,7 +109,7 @@ def upgrade() -> None:
         sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("group_id", sa.String(length=36), nullable=False),
         sa.Column("status", analysis_run_status_column, nullable=False),
-        sa.Column("result_status", analysis_result_status_column, nullable=False),
+        sa.Column("result_status", analysis_result_status_column, nullable=True),
         sa.Column("provisional_reasons", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("analysis_period_started_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("analysis_period_ended_at", sa.DateTime(timezone=True), nullable=False),
@@ -128,6 +131,19 @@ def upgrade() -> None:
             "length(analysis_version) > 0",
             name="ck_analysis_runs_analysis_version_nonblank",
         ),
+        sa.CheckConstraint(
+            "((status = 'COMPLETED' AND result_status IS NOT NULL) "
+            "OR (status IN ('PENDING', 'RUNNING') AND result_status IS NULL) "
+            "OR status = 'FAILED')",
+            name="ck_analysis_runs_result_status_lifecycle",
+        ),
+        sa.CheckConstraint(
+            "((result_status = 'STANDARD' AND jsonb_array_length(provisional_reasons) = 0) "
+            "OR (result_status IN ('PROVISIONAL', 'INSUFFICIENT_DATA') "
+            "AND jsonb_array_length(provisional_reasons) > 0) "
+            "OR result_status IS NULL)",
+            name="ck_analysis_runs_result_status_reasons",
+        ),
         sa.ForeignKeyConstraint(["group_id"], ["groups.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -137,9 +153,12 @@ def upgrade() -> None:
         "behavior_metrics",
         sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("analysis_run_id", sa.String(length=36), nullable=False),
-        sa.Column("metric_code", sa.String(length=80), nullable=False),
-        sa.Column("metric_value", sa.Numeric(12, 4), nullable=True),
-        sa.Column("is_available", sa.Boolean(), nullable=False),
+        sa.Column("feature_code", sa.String(length=80), nullable=False),
+        sa.Column("status", behavior_feature_status_column, nullable=False),
+        sa.Column("raw_value", sa.Numeric(12, 4), nullable=True),
+        sa.Column("normalized_score", sa.Numeric(6, 4), nullable=True),
+        sa.Column("unit", behavior_feature_unit_column, nullable=False),
+        sa.Column("sample_count", sa.Integer(), nullable=False),
         sa.Column("unavailable_reason", sa.String(length=120), nullable=True),
         sa.Column("evidence", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("metric_metadata", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
@@ -148,8 +167,17 @@ def upgrade() -> None:
         sa.Column("snapshot_hash", sa.String(length=128), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
-            "(is_available = false OR metric_value IS NOT NULL)",
-            name="ck_behavior_metrics_available_value_required",
+            "normalized_score IS NULL OR (normalized_score >= 0 AND normalized_score <= 1)",
+            name="ck_behavior_metrics_normalized_score_range",
+        ),
+        sa.CheckConstraint(
+            "sample_count >= 0",
+            name="ck_behavior_metrics_sample_count_nonnegative",
+        ),
+        sa.CheckConstraint(
+            "((status = 'AVAILABLE' AND raw_value IS NOT NULL AND normalized_score IS NOT NULL) "
+            "OR (status = 'UNAVAILABLE' AND unavailable_reason IS NOT NULL))",
+            name="ck_behavior_metrics_status_payload",
         ),
         sa.CheckConstraint(
             "length(snapshot_hash) > 0",
@@ -157,7 +185,7 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["analysis_run_id"], ["analysis_runs.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("analysis_run_id", "metric_code", name="uq_behavior_metrics_run_metric"),
+        sa.UniqueConstraint("analysis_run_id", "feature_code", name="uq_behavior_metrics_run_feature"),
     )
     op.create_index(
         op.f("ix_behavior_metrics_analysis_run_id"),
@@ -165,13 +193,14 @@ def upgrade() -> None:
         ["analysis_run_id"],
         unique=False,
     )
-    op.create_index(op.f("ix_behavior_metrics_metric_code"), "behavior_metrics", ["metric_code"], unique=False)
+    op.create_index(op.f("ix_behavior_metrics_feature_code"), "behavior_metrics", ["feature_code"], unique=False)
 
     op.create_table(
         "consumption_mbti_results",
         sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("analysis_run_id", sa.String(length=36), nullable=False),
         sa.Column("mbti_type", consumption_mbti_type_column, nullable=True),
+        sa.Column("result_status", analysis_result_status_column, nullable=False),
         sa.Column("ei_score", sa.Numeric(6, 4), nullable=True),
         sa.Column("sn_score", sa.Numeric(6, 4), nullable=True),
         sa.Column("tf_score", sa.Numeric(6, 4), nullable=True),
@@ -200,6 +229,10 @@ def upgrade() -> None:
             "length(snapshot_hash) > 0",
             name="ck_consumption_mbti_results_snapshot_hash_nonblank",
         ),
+        sa.CheckConstraint(
+            "(result_status != 'INSUFFICIENT_DATA' OR mbti_type IS NULL)",
+            name="ck_consumption_mbti_results_insufficient_mbti_null",
+        ),
         sa.ForeignKeyConstraint(["analysis_run_id"], ["analysis_runs.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("analysis_run_id", name="uq_consumption_mbti_results_run"),
@@ -222,6 +255,7 @@ def upgrade() -> None:
         sa.Column("latency_ms", sa.Integer(), nullable=True),
         sa.Column("fallback_used", sa.Boolean(), nullable=False),
         sa.Column("fallback_reason", sa.String(length=120), nullable=True),
+        sa.Column("repair_attempted", sa.Boolean(), nullable=False),
         sa.Column("validation_result", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
         sa.Column("failure_reason", sa.String(length=255), nullable=True),
         sa.Column("schema_version", sa.String(length=40), nullable=False),
@@ -229,8 +263,12 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
-            "((status IN ('COMPLETED', 'FALLBACK_COMPLETED') AND report_content IS NOT NULL) "
-            "OR (status = 'FAILED' AND failure_reason IS NOT NULL))",
+            "((status = 'COMPLETED' AND fallback_used = false AND report_content IS NOT NULL "
+            "AND failure_reason IS NULL) "
+            "OR (status = 'FALLBACK_COMPLETED' AND fallback_used = true "
+            "AND report_content IS NOT NULL AND fallback_reason IS NOT NULL "
+            "AND failure_reason IS NULL) "
+            "OR (status = 'FAILED' AND report_content IS NULL AND failure_reason IS NOT NULL))",
             name="ck_ai_reports_status_payload",
         ),
         sa.CheckConstraint("latency_ms IS NULL OR latency_ms >= 0", name="ck_ai_reports_latency_nonnegative"),
@@ -250,7 +288,7 @@ def downgrade() -> None:
         table_name="consumption_mbti_results",
     )
     op.drop_table("consumption_mbti_results")
-    op.drop_index(op.f("ix_behavior_metrics_metric_code"), table_name="behavior_metrics")
+    op.drop_index(op.f("ix_behavior_metrics_feature_code"), table_name="behavior_metrics")
     op.drop_index(op.f("ix_behavior_metrics_analysis_run_id"), table_name="behavior_metrics")
     op.drop_table("behavior_metrics")
     op.drop_index(op.f("ix_analysis_runs_group_id"), table_name="analysis_runs")
@@ -259,6 +297,8 @@ def downgrade() -> None:
     bind = op.get_bind()
     ai_report_status.drop(bind, checkfirst=True)
     consumption_mbti_type.drop(bind, checkfirst=True)
+    behavior_feature_unit.drop(bind, checkfirst=True)
+    behavior_feature_status.drop(bind, checkfirst=True)
     analysis_source_type.drop(bind, checkfirst=True)
     analysis_result_status.drop(bind, checkfirst=True)
     analysis_run_status.drop(bind, checkfirst=True)

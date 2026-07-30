@@ -18,9 +18,18 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.analysis.contracts import (
+    AnalysisSourceType,
+    BehaviorFeatureStatus,
+    BehaviorFeatureUnit,
+    ResultStatus,
+)
 from app.db.base import Base
+
+JSON_DOCUMENT = JSON().with_variant(JSONB(), "postgresql")
 
 
 def utc_now() -> datetime:
@@ -32,19 +41,6 @@ class AnalysisRunStatus(str, enum.Enum):
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
-
-
-class ResultStatus(str, enum.Enum):
-    STANDARD = "STANDARD"
-    PROVISIONAL = "PROVISIONAL"
-    INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
-
-
-class AnalysisSourceType(str, enum.Enum):
-    CSV_UPLOAD = "CSV_UPLOAD"
-    MOCK = "MOCK"
-    MANUAL_ENTRY = "MANUAL_ENTRY"
-    INTERNAL_TEST = "INTERNAL_TEST"
 
 
 class ConsumptionMBTIType(str, enum.Enum):
@@ -87,6 +83,12 @@ class AnalysisRun(Base):
             "length(analysis_version) > 0",
             name="ck_analysis_runs_analysis_version_nonblank",
         ),
+        CheckConstraint(
+            "((status = 'COMPLETED' AND result_status IS NOT NULL) "
+            "OR (status IN ('PENDING', 'RUNNING') AND result_status IS NULL) "
+            "OR status = 'FAILED')",
+            name="ck_analysis_runs_result_status_lifecycle",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -98,10 +100,10 @@ class AnalysisRun(Base):
         nullable=False,
         default=AnalysisRunStatus.PENDING,
     )
-    result_status: Mapped[ResultStatus] = mapped_column(
-        Enum(ResultStatus, name="analysis_result_status"), nullable=False
+    result_status: Mapped[ResultStatus | None] = mapped_column(
+        Enum(ResultStatus, name="analysis_result_status"), nullable=True
     )
-    provisional_reasons: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    provisional_reasons: Mapped[list[str]] = mapped_column(JSON_DOCUMENT, nullable=False, default=list)
     analysis_period_started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     analysis_period_ended_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     source_type: Mapped[AnalysisSourceType] = mapped_column(
@@ -132,10 +134,19 @@ class AnalysisRun(Base):
 class BehaviorMetric(Base):
     __tablename__ = "behavior_metrics"
     __table_args__ = (
-        UniqueConstraint("analysis_run_id", "metric_code", name="uq_behavior_metrics_run_metric"),
+        UniqueConstraint("analysis_run_id", "feature_code", name="uq_behavior_metrics_run_feature"),
         CheckConstraint(
-            "(is_available = false OR metric_value IS NOT NULL)",
-            name="ck_behavior_metrics_available_value_required",
+            "normalized_score IS NULL OR (normalized_score >= 0 AND normalized_score <= 1)",
+            name="ck_behavior_metrics_normalized_score_range",
+        ),
+        CheckConstraint(
+            "sample_count >= 0",
+            name="ck_behavior_metrics_sample_count_nonnegative",
+        ),
+        CheckConstraint(
+            "((status = 'AVAILABLE' AND raw_value IS NOT NULL AND normalized_score IS NOT NULL) "
+            "OR (status = 'UNAVAILABLE' AND unavailable_reason IS NOT NULL))",
+            name="ck_behavior_metrics_status_payload",
         ),
         CheckConstraint(
             "length(snapshot_hash) > 0",
@@ -147,12 +158,19 @@ class BehaviorMetric(Base):
     analysis_run_id: Mapped[str] = mapped_column(
         ForeignKey("analysis_runs.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    metric_code: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
-    metric_value: Mapped[Decimal | None] = mapped_column(Numeric(12, 4), nullable=True)
-    is_available: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    feature_code: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+    status: Mapped[BehaviorFeatureStatus] = mapped_column(
+        Enum(BehaviorFeatureStatus, name="behavior_feature_status"), nullable=False
+    )
+    raw_value: Mapped[Decimal | None] = mapped_column(Numeric(12, 4), nullable=True)
+    normalized_score: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
+    unit: Mapped[BehaviorFeatureUnit] = mapped_column(
+        Enum(BehaviorFeatureUnit, name="behavior_feature_unit"), nullable=False
+    )
+    sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
     unavailable_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    evidence: Mapped[list[dict[str, Any]]] = mapped_column(JSON, nullable=False, default=list)
-    metric_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    evidence: Mapped[list[str]] = mapped_column(JSON_DOCUMENT, nullable=False, default=list)
+    metric_metadata: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False, default=dict)
     schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
     calculation_version: Mapped[str] = mapped_column(String(40), nullable=False)
     snapshot_hash: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -178,6 +196,10 @@ class ConsumptionMBTIResult(Base):
             "length(snapshot_hash) > 0",
             name="ck_consumption_mbti_results_snapshot_hash_nonblank",
         ),
+        CheckConstraint(
+            "(result_status != 'INSUFFICIENT_DATA' OR mbti_type IS NULL)",
+            name="ck_consumption_mbti_results_insufficient_mbti_null",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -187,6 +209,9 @@ class ConsumptionMBTIResult(Base):
     mbti_type: Mapped[ConsumptionMBTIType | None] = mapped_column(
         Enum(ConsumptionMBTIType, name="consumption_mbti_type"), nullable=True
     )
+    result_status: Mapped[ResultStatus] = mapped_column(
+        Enum(ResultStatus, name="analysis_result_status"), nullable=False
+    )
     ei_score: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
     sn_score: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
     tf_score: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
@@ -194,9 +219,9 @@ class ConsumptionMBTIResult(Base):
     confidence_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
     confidence_score: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
     coverage: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
-    limitations: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
-    axis_score_directions: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
-    result_metadata: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    limitations: Mapped[list[str]] = mapped_column(JSON_DOCUMENT, nullable=False, default=list)
+    axis_score_directions: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False, default=dict)
+    result_metadata: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False, default=dict)
     schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
     rule_version: Mapped[str] = mapped_column(String(40), nullable=False)
     snapshot_hash: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -213,8 +238,12 @@ class AIReport(Base):
     __table_args__ = (
         UniqueConstraint("analysis_run_id", name="uq_ai_reports_run"),
         CheckConstraint(
-            "((status IN ('COMPLETED', 'FALLBACK_COMPLETED') AND report_content IS NOT NULL) "
-            "OR (status = 'FAILED' AND failure_reason IS NOT NULL))",
+            "((status = 'COMPLETED' AND fallback_used = false AND report_content IS NOT NULL "
+            "AND failure_reason IS NULL) "
+            "OR (status = 'FALLBACK_COMPLETED' AND fallback_used = true "
+            "AND report_content IS NOT NULL AND fallback_reason IS NOT NULL "
+            "AND failure_reason IS NULL) "
+            "OR (status = 'FAILED' AND report_content IS NULL AND failure_reason IS NOT NULL))",
             name="ck_ai_reports_status_payload",
         ),
         CheckConstraint(
@@ -234,13 +263,14 @@ class AIReport(Base):
     status: Mapped[AIReportStatus] = mapped_column(
         Enum(AIReportStatus, name="ai_report_status"), nullable=False
     )
-    report_content: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    report_content: Mapped[dict[str, Any] | None] = mapped_column(JSON_DOCUMENT, nullable=True)
     model_name: Mapped[str | None] = mapped_column(String(80), nullable=True)
     prompt_version: Mapped[str | None] = mapped_column(String(80), nullable=True)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     fallback_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     fallback_reason: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    validation_result: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    repair_attempted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    validation_result: Mapped[dict[str, Any]] = mapped_column(JSON_DOCUMENT, nullable=False, default=dict)
     failure_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
     snapshot_hash: Mapped[str] = mapped_column(String(128), nullable=False)
