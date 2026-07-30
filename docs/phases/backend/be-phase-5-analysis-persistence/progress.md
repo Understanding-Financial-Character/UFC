@@ -24,7 +24,7 @@ Analysis output persistence contract updated.
 ## Linked PR
 Not assigned.
 ## Commits
-Pending.
+- `96758c0` feat: add analysis persistence schema
 ## Blockers
 None.
 ## Handover Notes

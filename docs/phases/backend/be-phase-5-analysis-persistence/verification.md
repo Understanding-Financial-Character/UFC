@@ -1,7 +1,7 @@
 # BE Phase 5 - Analysis Persistence Verification
 
 ## Verified Commit
-Pending commit.
+`96758c0` feat: add analysis persistence schema
 ## Verified At
 2026-07-30 12:01:58 KST
 ## Environment
