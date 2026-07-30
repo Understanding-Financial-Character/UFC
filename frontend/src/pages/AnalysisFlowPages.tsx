@@ -14,7 +14,7 @@ import {
 } from "../api/baseApi";
 import { useAppSelector } from "../app/hooks";
 import { ToastViewport } from "../components/feedback/ToastViewport";
-import type { AnalysisResponse, GroupResponse } from "../features/auth/types";
+import type { AnalysisResponse, AnalysisRunStatus, GroupResponse } from "../features/auth/types";
 
 type RelationshipType = GroupResponse["relationship_type"];
 
@@ -367,7 +367,7 @@ export function AnalysisLoadingPage() {
     if (!analysis) {
       return;
     }
-    if (["COMPLETED", "PARTIALLY_COMPLETED", "FAILED"].includes(analysis.status)) {
+    if (isTerminalAnalysisStatus(analysis.status)) {
       const timer = window.setTimeout(() => {
         navigate(`/analysis/result?analysisId=${analysis.analysis_id}`, { replace: true });
       }, 900);
@@ -375,7 +375,7 @@ export function AnalysisLoadingPage() {
     }
   }, [analysis, navigate]);
 
-  const currentStep = analysis?.behavior_metrics.length ? 3 : analysis?.consumption_mbti_result ? 4 : 2;
+  const currentStep = analysisStep(analysis);
 
   return (
     <main className="flow-page flow-centered">
@@ -660,6 +660,26 @@ function loadingCopy(step: number): string {
     "근거 기반 Qwen 리포트를 정리하는 중...",
   ];
   return copies[Math.min(step, copies.length - 1)];
+}
+
+function isTerminalAnalysisStatus(status: AnalysisRunStatus): boolean {
+  return ["COMPLETED", "COMPLETED_WITH_FALLBACK", "PARTIALLY_COMPLETED", "FAILED"].includes(status);
+}
+
+function analysisStep(analysis: AnalysisResponse | undefined): number {
+  if (!analysis) {
+    return 1;
+  }
+  if (isTerminalAnalysisStatus(analysis.status)) {
+    return 4;
+  }
+  if (analysis.status === "REPORT_GENERATING" || analysis.consumption_mbti_result) {
+    return 3;
+  }
+  if (analysis.status === "ANALYZING" || analysis.behavior_metrics.length > 0) {
+    return 2;
+  }
+  return 1;
 }
 
 function spendingTitle(mbti: string): string {

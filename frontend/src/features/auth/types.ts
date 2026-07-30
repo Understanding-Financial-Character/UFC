@@ -115,7 +115,16 @@ export interface AnalysisCreateRequest {
   period_end: string;
 }
 
-export type AnalysisRunStatus = "PENDING" | "RUNNING" | "COMPLETED" | "PARTIALLY_COMPLETED" | "FAILED";
+export type AnalysisRunStatus =
+  | "READY"
+  | "ANALYZING"
+  | "REPORT_GENERATING"
+  | "PARTIALLY_COMPLETED"
+  | "COMPLETED_WITH_FALLBACK"
+  | "PENDING"
+  | "RUNNING"
+  | "COMPLETED"
+  | "FAILED";
 export type AnalysisResultStatus = "STANDARD" | "PROVISIONAL" | "INSUFFICIENT_DATA";
 
 export interface BehaviorMetricResponse {
