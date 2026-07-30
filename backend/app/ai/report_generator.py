@@ -4,6 +4,7 @@ import json
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field, replace
+from enum import StrEnum
 from typing import Any, Protocol
 from urllib.parse import urljoin
 
@@ -19,6 +20,16 @@ from app.core.config import Settings
 SAFE_PROMPT_PREFIX = "/no_think\n"  # Qwen3 non-thinking mode hint for Ollama prompts.
 
 
+class EvidenceValueType(StrEnum):
+    RATIO = "RATIO"
+    PERCENTAGE = "PERCENTAGE"
+    COUNT = "COUNT"
+    AMOUNT = "AMOUNT"
+    DURATION = "DURATION"
+    SCORE = "SCORE"
+    TEXT = "TEXT"
+
+
 class ReportGenerator(Protocol):
     def generate(self, request: ReportGenerationRequest) -> ReportGenerationResult:
         raise NotImplementedError
@@ -29,6 +40,7 @@ class EvidenceItem:
     metric: str
     value: float | int | str | None
     basis: str
+    value_type: EvidenceValueType = EvidenceValueType.RATIO
 
 
 @dataclass(frozen=True)
@@ -48,7 +60,12 @@ class ReportGenerationRequest:
             "axisScores": self.axis_scores,
             "confidence": self.confidence,
             "evidence": [
-                {"metric": item.metric, "value": item.value, "basis": item.basis}
+                {
+                    "metric": item.metric,
+                    "value": item.value,
+                    "valueType": item.value_type.value,
+                    "basis": item.basis,
+                }
                 for item in self.evidence
             ],
             "memberMbtiSummary": self.member_mbti_summary,
@@ -271,8 +288,15 @@ class OllamaQwenReportGenerator:
         prefix = "" if self.settings.llm_thinking_enabled else SAFE_PROMPT_PREFIX
         return (
             f"{prefix}"
-            "UFC 소비 MBTI 결과를 사용자에게 설명하는 짧은 리포트를 작성하세요. "
-            "제공된 JSON 근거만 사용하고, 실제 성격 진단이나 금융 조언처럼 말하지 마세요.\n"
+            "UFC 소비 MBTI 결과를 사용자에게 설명하는 한국어 리포트를 작성하세요. "
+            "제공된 JSON 근거만 사용하고, 실제 성격 진단이나 금융 조언처럼 말하지 마세요. "
+            "응답은 반드시 JSON 객체 하나만 출력하세요. "
+            "필수 키는 headline, summary, strengths, commonPoints, differences, "
+            "observationPoints, conversationQuestions, disclaimer 입니다. "
+            "정의된 8개 키 외의 추가 키는 절대 출력하지 마세요. "
+            "strengths, commonPoints, differences, observationPoints, conversationQuestions는 "
+            "문자열 배열이어야 합니다. "
+            "소비 MBTI를 다시 계산하거나 변경하지 마세요.\n"
             f"{payload}"
         )
 

@@ -1,27 +1,34 @@
 # AI Phase 2 - Grounded Report
 
 ## Status
-NOT_STARTED
+VERIFYING
 ## Goal
 Generate user-friendly Qwen3 4B reports from deterministic results only.
 ## Why
 Users need readable explanations without unsupported claims.
 ## Prerequisites
-AI Phase 1, AN Phase 3, BE analysis persistence.
+AI Phase 1. AN Phase 3 and BE analysis persistence provide later orchestration inputs.
 ## In Scope
 Prompt versioning, grounded input filtering, report validation, fallback handling.
 ## Out of Scope
-Score calculation, MBTI decision, raw transaction summarization.
+Score calculation, MBTI decision, raw transaction summarization, analysis orchestration hookup, `ai_reports` persistence.
 ## Responsible Modules
-`backend/app/ai`, `backend/app/orchestration`, tests, docs/security.
+`backend/app/ai`, tests, docs/security.
 ## Contracts
 AI report input/output and validation contracts.
 ## Data Changes
-Uses `ai_reports` from BE Phase 5.
+None. `ai_reports` persistence remains a later backend phase.
 ## Security Considerations
 Strict prompt minimization and no secret/raw financial transfer.
 ## Implementation Tasks
-Implement prompt, provider call, parser, validator, fallback.
+- Implement grounded report input DTO.
+- Implement Pydantic output schema.
+- Implement JSON extraction and one repair attempt.
+- Implement evidence number validation.
+- Implement strict output schema and evidence number validation against the prompt context.
+- Implement limited unsupported claim, prohibited wording, and prohibited input checks.
+- Implement timeout/provider failure template fallback.
+- Record prompt version, model, latency, fallback status, repair status, and validation flags.
 ## Test Scenarios
 Success, sparse data, hallucination validation failure, provider failure.
 ## Completion Criteria
