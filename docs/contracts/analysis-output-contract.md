@@ -83,3 +83,5 @@ Qwen3 report generation receives only:
 Qwen3 must not receive user email, user name or nickname, internal user id, full transaction arrays, raw transaction memo text, tokens, ciphertext, or secrets.
 
 Qwen3 failure does not invalidate deterministic analysis output.
+
+AI Phase 1 introduces the runtime provider boundary only. Prompt finalization, AI report schema validation, orchestration hookup, and `ai_reports` persistence remain later phase responsibilities.

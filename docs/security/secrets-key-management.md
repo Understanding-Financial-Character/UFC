@@ -19,6 +19,10 @@
 - `LLM_BASE_URL`
 - `LLM_MODEL`
 - `LLM_THINKING_ENABLED`
+- `LLM_TEMPERATURE`
+- `LLM_TIMEOUT_SECONDS`
+
+`LLM_PROVIDER`, `LLM_BASE_URL`, `LLM_MODEL`, `LLM_THINKING_ENABLED`, `LLM_TEMPERATURE`, and `LLM_TIMEOUT_SECONDS` are runtime configuration values, not secrets. They are listed here because they affect AI runtime behavior and must be environment-driven.
 
 `FIELD_ENCRYPTION_KEY` must be base64 encoded and decode to exactly 32 bytes for AES-256-GCM.
 

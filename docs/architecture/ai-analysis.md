@@ -9,6 +9,28 @@ The AI layer turns backend-calculated evidence into readable summaries through O
 - Generate discussion questions for members
 - Produce report text for result and sharing surfaces
 
+## Runtime Boundary
+
+AI Phase 1 provides a provider boundary under `backend/app/ai`:
+
+- `ReportGenerator` protocol
+- `OllamaQwenReportGenerator` for local Ollama `qwen3:4b`
+- `FakeReportGenerator` for deterministic tests
+- `TemplateReportGenerator` for fallback-style deterministic text
+
+The provider receives only aggregate, grounded report input. It does not query SQLAlchemy models, access FastAPI routers, run orchestration, or load raw transactions.
+
+## Ollama Runtime Settings
+
+- `LLM_PROVIDER=ollama`
+- `LLM_BASE_URL=http://ollama:11434`
+- `LLM_MODEL=qwen3:4b`
+- `LLM_THINKING_ENABLED=false`
+- `LLM_TEMPERATURE=0.2`
+- `LLM_TIMEOUT_SECONDS=30`
+
+The Ollama provider checks `/api/tags` before generation and fails when the configured model is missing. Generation uses non-streaming responses, non-thinking mode by default, and conservative options.
+
 ## Deterministic Before Generative
 
 Qwen3 4B must not be the source of truth for scores, categories, or final spending MBTI type.

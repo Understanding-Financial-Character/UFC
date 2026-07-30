@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://ollama:11434"
     llm_model: str = "qwen3:4b"
     llm_thinking_enabled: bool = False
+    llm_temperature: float = Field(default=0.2, ge=0.0, le=1.0)
+    llm_timeout_seconds: int = Field(default=30, gt=0)
     log_level: str = Field(default="INFO")
     cors_allowed_origins: str = "http://localhost:5173"
     auth_token_secret: str | None = None

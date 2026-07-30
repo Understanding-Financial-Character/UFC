@@ -90,7 +90,7 @@ PR #6 is tracked as Analysis / AN Phase 2. GitHub connector state observed durin
 
 | Phase | Status | PR |
 | --- | --- | --- |
-| AI Phase 1 - Qwen3 Runtime | NOT_STARTED | Not assigned |
+| AI Phase 1 - Qwen3 Runtime | VERIFYING | Pending |
 | AI Phase 2 - Grounded Report | NOT_STARTED | Not assigned |
 
 ### Frontend

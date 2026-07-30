@@ -46,7 +46,7 @@ This checks Compose config, migrations, backend tests, backend lint, frontend li
 
 ## Optional AI Runtime
 
-Ollama is not part of the default local development path before the AI runtime phase.
+Ollama is not part of the default `make dev` path. AI Phase 1 adds a local runtime boundary and optional commands for Qwen3 4B.
 
 ```bash
 make ai-setup
@@ -63,6 +63,15 @@ make verify-ai
 ```
 
 The Ollama image is pinned through `OLLAMA_IMAGE` instead of using `latest`. `qwen3:4b` is pulled only when it is missing.
+
+Backend provider settings:
+
+- `LLM_PROVIDER=ollama`
+- `LLM_BASE_URL=http://ollama:11434`
+- `LLM_MODEL=qwen3:4b`
+- `LLM_THINKING_ENABLED=false`
+- `LLM_TEMPERATURE=0.2`
+- `LLM_TIMEOUT_SECONDS=30`
 
 ## Nginx
 

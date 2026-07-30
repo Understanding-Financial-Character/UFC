@@ -1,7 +1,7 @@
 # AI Phase 1 - Qwen3 Runtime
 
 ## Status
-NOT_STARTED
+VERIFYING
 ## Goal
 Prepare Ollama-backed Qwen3 4B runtime boundary.
 ## Why
@@ -9,9 +9,9 @@ AI reports need a local provider boundary before prompt/report behavior is imple
 ## Prerequisites
 Analysis output contract.
 ## In Scope
-Provider interface, Ollama config, health checks, model selection docs.
+Provider interface, Ollama config, health checks, model selection docs, timeout and model-missing handling, fake/template providers for tests.
 ## Out of Scope
-Report generation logic, score calculation, rule engine.
+Prompt finalization, analysis orchestration connection, full transaction forwarding, score calculation, rule engine.
 ## Responsible Modules
 `backend/app/ai`, Compose AI profile, docs.
 ## Contracts
@@ -21,7 +21,13 @@ None.
 ## Security Considerations
 No raw transactions, tokens, ciphertext, secrets, or user identifiers in prompts.
 ## Implementation Tasks
-Implement provider in future phase.
+- Add `ReportGenerator` protocol.
+- Add `OllamaQwenReportGenerator`.
+- Add `FakeReportGenerator`.
+- Add `TemplateReportGenerator`.
+- Add LLM temperature and timeout settings.
+- Add Ollama health/model check.
+- Test connection, timeout, missing model, and invalid response handling.
 ## Test Scenarios
 Runtime unavailable, model missing, provider timeout.
 ## Completion Criteria
