@@ -20,7 +20,8 @@ PostgreSQL group/member/transaction lookup
 -> calculate_behavior_metrics()
 -> score_consumption_mbti()
 -> analysis persistence repositories
--> GroundedReportService
+-> commit deterministic analysis
+-> GroundedReportService outside DB transactions
 -> ai_reports persistence
 ```
 
@@ -62,14 +63,18 @@ Define orchestration services and tests.
 - Run preprocessing and stop early on `INSUFFICIENT_DATA`.
 - Calculate behavior metrics only from normalized eligible transactions.
 - Run the rule engine only after sufficient preprocessing output exists.
-- Persist behavior metrics, consumption MBTI result, and AI report under one explicit transaction boundary.
+- Persist deterministic preprocessing, behavior metrics, and rule-engine results in one short database transaction.
+- Commit deterministic analysis before invoking Qwen.
+- Invoke Qwen outside database transactions.
+- Persist the validated or fallback AI report in a separate short database transaction.
+- Never let AI report failure roll back an already completed deterministic analysis.
 - Save fallback AI reports as `FALLBACK_COMPLETED` without invalidating deterministic results.
 - Return analysis and report DTOs, never ORM entities.
 ## Test Scenarios
 Success, insufficient data, AI failure, owner denial.
 
 - Mock fixture `SCN-01` through `SCN-07` produce the documented golden MBTI values through the full backend path.
-- Mock fixture `SCN-08` stops before rule and LLM judgment with `INSUFFICIENT_DATA`.
+- Mock fixture `SCN-08` stops before rule and LLM judgment with `INSUFFICIENT_DATA`; use spies or mocks to assert rule engine and report generator are not called.
 - Qwen timeout or invalid JSON stores a fallback report.
 - Another user cannot create, list, or read analysis/report resources for an owned group.
 - Repeated requests for the same group and period do not create contradictory completed runs.

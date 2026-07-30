@@ -25,4 +25,6 @@ BE Phase 6 is unblocked on `main` by the completed lower-level modules, but no o
 ## Handover Notes
 Qwen failure must not invalidate deterministic results.
 
-Use `backend/tests/test_mock_analysis_pipeline.py` as the current lower-level regression baseline. BE Phase 6 should add API-level tests that prove the same mock fixture expectations work through persisted analysis runs and report lookup endpoints.
+Use `backend/tests/test_analysis_module_mock_fixture_regression.py` as the current lower-level regression baseline. It does not verify the future DB adapter, API router, transaction boundary, or spy-based rule/LLM skip behavior.
+
+BE Phase 6 should add API-level tests that prove the same mock fixture expectations work through persisted analysis runs and report lookup endpoints. The API-level sparse-data test must assert the rule engine and report generator are not called after preprocessing returns `INSUFFICIENT_DATA`.

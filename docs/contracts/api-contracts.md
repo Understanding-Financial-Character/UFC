@@ -736,7 +736,8 @@ This response must follow `docs/contracts/analysis-output-contract.md`.
 - Sync or async: Sync lookup after generation
 - Idempotency: Safe read
 - Resource owner: Authorized member of the analysis group
-- Success status: `200 OK`
+- Success status: `200 OK` when the report record has been saved
+- Pending status: `202 Accepted` when deterministic analysis is complete but report generation has not saved a report yet
 - Error codes: `NOT_FOUND`, `AI_REPORT_UNAVAILABLE`, `INTERNAL_ERROR`
 
 Response:
@@ -781,7 +782,26 @@ Field rules:
 - `fallback_used`: `true` only when template fallback produced the saved report
 - `validation_result`: AI Phase 2 grounding validation metadata
 
-`COMPLETED`, `FALLBACK_COMPLETED`, and `FAILED` report states are returned as `200 OK` lookup responses when the report resource exists. Qwen3 failure does not invalidate deterministic analysis output. A saved fallback report uses `FALLBACK_COMPLETED`; a missing or unavailable report resource may use `AI_REPORT_UNAVAILABLE`.
+Pending response before an `ai_reports` row exists:
+
+```json
+{
+  "schema_version": "1.0",
+  "analysis_id": "uuid",
+  "status": "REPORT_PENDING",
+  "report": null
+}
+```
+
+`COMPLETED`, `FALLBACK_COMPLETED`, and `FAILED` report states are returned as `200 OK` lookup responses when the report resource exists. Qwen3 failure does not invalidate deterministic analysis output. A saved fallback report uses `FALLBACK_COMPLETED`.
+
+Report lookup state mapping:
+
+- Analysis missing or inaccessible: `404 NOT_FOUND`
+- Analysis not completed yet: `409 CONFLICT`
+- Analysis completed but no `ai_reports` row has been saved yet: `202 Accepted` with `REPORT_PENDING`
+- AI report row saved with `COMPLETED`, `FALLBACK_COMPLETED`, or `FAILED`: `200 OK`
+- Report generation infrastructure cannot determine or recover report state: `503 AI_REPORT_UNAVAILABLE`
 
 ## Versioning Rules
 

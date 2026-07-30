@@ -7,6 +7,8 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
+
 from app.ai.grounded_report import GroundedReportInput, GroundedReportService
 from app.ai.report_generator import (
     EvidenceItem,
@@ -16,6 +18,10 @@ from app.ai.report_generator import (
 )
 from app.analysis.behavior_metrics import calculate_behavior_metrics
 from app.analysis.contracts import (
+    BEHAVIOR_FEATURE_POLICY_VERSION,
+    BEHAVIOR_FEATURE_SCHEMA_VERSION,
+    CATEGORY_MAPPING_VERSION,
+    CONSUMPTION_MBTI_SCHEMA_VERSION,
     AnalysisInput,
     AnalysisMemberInput,
     AnalysisPeriod,
@@ -35,13 +41,57 @@ MOCK_TRANSACTION_PATH = ROOT / "app/modules/transactions/fixtures/transactions_m
 CATEGORY_SEED_PATH = ROOT / "migrations/data/20260730_0004_categories.csv"
 
 EXPECTED_MOCK_RESULTS = {
-    "SCN-01": "ENFJ",
-    "SCN-02": "ISTJ",
-    "SCN-03": "ENTJ",
-    "SCN-04": "ENFJ",
-    "SCN-05": "ENFP",
-    "SCN-06": "ISTJ",
-    "SCN-07": "INTP",
+    "SCN-01": {
+        "mbti": "ENFJ",
+        "axis_scores": {"EI": 0.7894, "SN": 0.7746, "TF": 0.5068, "JP": 0.4312},
+        "low_margin_reasons": {"TF_LOW_AXIS_SCORE_MARGIN"},
+    },
+    "SCN-02": {
+        "mbti": "ISTJ",
+        "axis_scores": {"EI": 0.288, "SN": 0.3902, "TF": 0.3637, "JP": 0.3283},
+        "low_margin_reasons": set(),
+    },
+    "SCN-03": {
+        "mbti": "ENTJ",
+        "axis_scores": {"EI": 0.6458, "SN": 0.5584, "TF": 0.1861, "JP": 0.3603},
+        "low_margin_reasons": set(),
+    },
+    "SCN-04": {
+        "mbti": "ENFJ",
+        "axis_scores": {"EI": 0.7056, "SN": 0.6916, "TF": 0.5527, "JP": 0.489},
+        "low_margin_reasons": {"JP_LOW_AXIS_SCORE_MARGIN"},
+    },
+    "SCN-05": {
+        "mbti": "ENFP",
+        "axis_scores": {"EI": 0.5847, "SN": 0.5111, "TF": 0.5442, "JP": 0.5995},
+        "low_margin_reasons": {"SN_LOW_AXIS_SCORE_MARGIN", "TF_LOW_AXIS_SCORE_MARGIN"},
+    },
+    "SCN-06": {
+        "mbti": "ISTJ",
+        "axis_scores": {"EI": 0.2146, "SN": 0.3967, "TF": 0.209, "JP": 0.4008},
+        "low_margin_reasons": set(),
+    },
+    "SCN-07": {
+        "mbti": "INTP",
+        "axis_scores": {"EI": 0.4898, "SN": 0.6925, "TF": 0.1383, "JP": 0.6293},
+        "low_margin_reasons": {"EI_LOW_AXIS_SCORE_MARGIN"},
+    },
+}
+EXPECTED_PRIMARY_EVIDENCE = {
+    "SCN-05": (
+        "SHARED_EXPENSE_RATIO",
+        "PRACTICAL_SPENDING_RATIO",
+        "NIGHT_SPENDING_RATIO",
+        "CATEGORY_DIVERSITY_SCORE",
+        "CATEGORY_CONCENTRATION",
+        "PRACTICAL_SPENDING_RATIO",
+        "SAVING_EDUCATION_RATIO",
+        "SHARED_EXPENSE_RATIO",
+        "RELATIONSHIP_SPENDING_RATIO",
+        "WEEKLY_EXPENSE_VOLATILITY",
+        "RECURRING_EXPENSE_RATIO",
+        "REPEAT_MERCHANT_RATIO",
+    )
 }
 
 
@@ -57,14 +107,19 @@ class JsonReportGenerator:
 
     def generate(self, request: ReportGenerationRequest) -> ReportGenerationResult:
         self.calls += 1
+        evidence = request.evidence[0]
+        evidence_value = format_report_evidence(evidence)
         report = {
             "headline": f"{request.consumption_mbti} 소비 리포트",
-            "summary": f"{request.consumption_mbti} 결과는 CATEGORY_CONCENTRATION 64% 근거로 설명됩니다.",
-            "strengths": ["64% 근거가 있어 설명이 가능합니다."],
+            "summary": (
+                f"{request.consumption_mbti} 결과는 "
+                f"{evidence.metric} {evidence_value} 근거로 설명됩니다."
+            ),
+            "strengths": [f"{evidence_value} 근거가 있어 설명이 가능합니다."],
             "commonPoints": ["구성원 MBTI 요약과 함께 해석합니다."],
             "differences": ["개인 MBTI와 소비 MBTI는 같은 기준이 아닙니다."],
             "observationPoints": [f"결과 상태는 {request.result_status}입니다."],
-            "conversationQuestions": ["64% 소비 집중이 모임의 체감과 맞나요?"],
+            "conversationQuestions": [f"{evidence_value} 근거가 모임의 체감과 맞나요?"],
             "disclaimer": "이 결과는 실제 성격 진단이나 금융 진단이 아니며 금융상품을 추천하지 않습니다.",
         }
         import json
@@ -79,18 +134,25 @@ class JsonReportGenerator:
 def test_mock_scenarios_produce_expected_consumption_mbti_without_db_or_llm() -> None:
     scenarios = load_mock_scenarios()
 
-    for scenario_id, expected_mbti in EXPECTED_MOCK_RESULTS.items():
+    for scenario_id, expected in EXPECTED_MOCK_RESULTS.items():
         preprocessing, metrics, result = run_mock_pipeline(scenarios[scenario_id])
 
         assert preprocessing.analysis_eligible is True
         assert metrics.source_type == AnalysisSourceType.MOCK
-        assert result.mbti_type == expected_mbti
+        assert metrics.schema_version == BEHAVIOR_FEATURE_SCHEMA_VERSION
+        assert metrics.policy_version == BEHAVIOR_FEATURE_POLICY_VERSION
+        assert metrics.category_mapping_version == CATEGORY_MAPPING_VERSION
+        assert result.schema_version == CONSUMPTION_MBTI_SCHEMA_VERSION
+        assert result.rule_version == "consumption-mbti-v1"
+        assert result.mbti_type == expected["mbti"]
+        assert result.axis_scores == pytest.approx(expected["axis_scores"], abs=0.0001)
         assert result.result_status == ResultStatus.PROVISIONAL
         assert "SYNTHETIC_DATA" in result.provisional_reasons
+        assert expected["low_margin_reasons"] <= set(result.provisional_reasons)
         assert all(coverage >= 0.5 for coverage in result.axis_coverage.values())
 
 
-def test_sparse_mock_scenario_stops_before_rule_and_llm_judgment() -> None:
+def test_sparse_mock_scenario_is_marked_ineligible_by_preprocessing() -> None:
     scenario_rows = load_mock_scenarios()["SCN-08"]
     analysis_input = build_analysis_input(scenario_rows)
 
@@ -101,38 +163,72 @@ def test_sparse_mock_scenario_stops_before_rule_and_llm_judgment() -> None:
     assert "Transaction count is below the minimum analysis threshold." in preprocessing.limitations
 
 
-def test_grounded_report_accepts_rule_engine_output_without_sensitive_inputs() -> None:
-    _preprocessing, _metrics, result = run_mock_pipeline(load_mock_scenarios()["SCN-05"])
+def test_grounded_report_service_accepts_sanitized_deterministic_input() -> None:
+    preprocessing, _metrics, result = run_mock_pipeline(load_mock_scenarios()["SCN-05"])
     generator = JsonReportGenerator()
     service = GroundedReportService(generator=generator)
-
-    report_result = service.generate(
-        GroundedReportInput(
-            spending_mbti=result.mbti_type,
-            axis_scores={axis: score or 0.0 for axis, score in result.axis_scores.items()},
-            confidence={
-                "level": result.confidence.level.value,
-                "score": result.confidence.score,
-            },
-            evidence=(
-                EvidenceItem(
-                    metric="CATEGORY_CONCENTRATION",
-                    value=0.64,
-                    value_type=EvidenceValueType.RATIO,
-                    basis="CATEGORY_CONCENTRATION 64%",
-                ),
-            ),
-            member_mbti_summary={"INTJ": 1, "ENFP": 1},
-            limitations=("Mock data is synthetic.",),
-            result_status=result.result_status.value,
-        )
+    grounded_input = build_grounded_report_input_from_deterministic_result(
+        result=result,
+        member_mbti_summary={"INTJ": 1, "ENFP": 1},
+        limitations=preprocessing.limitations,
     )
+
+    assert grounded_input.spending_mbti == result.mbti_type
+    assert grounded_input.axis_scores == {axis: score or 0.0 for axis, score in result.axis_scores.items()}
+    assert grounded_input.confidence == {
+        "level": result.confidence.level.value,
+        "score": result.confidence.score,
+    }
+    assert tuple(item.metric for item in grounded_input.evidence) == EXPECTED_PRIMARY_EVIDENCE["SCN-05"]
+    assert grounded_input.limitations == preprocessing.limitations
+    assert grounded_input.safe_payload() == grounded_input.prompt_context().safe_payload()
+
+    report_result = service.generate(grounded_input)
 
     assert generator.calls == 1
     assert report_result.report.headline == "ENFP 소비 리포트"
     assert report_result.metadata.model == "qwen3:4b"
     assert report_result.metadata.fallback_used is False
     assert report_result.metadata.validation["schema"] is True
+
+
+def build_grounded_report_input_from_deterministic_result(
+    *,
+    result,
+    member_mbti_summary: dict[str, int],
+    limitations: tuple[str, ...],
+) -> GroundedReportInput:
+    return GroundedReportInput(
+        spending_mbti=result.mbti_type,
+        axis_scores={axis: score or 0.0 for axis, score in result.axis_scores.items()},
+        confidence={
+            "level": result.confidence.level.value,
+            "score": result.confidence.score,
+        },
+        evidence=tuple(
+            EvidenceItem(
+                metric=contribution.feature_code.value,
+                value=contribution.feature_score,
+                value_type=EvidenceValueType.SCORE,
+                basis=contribution.evidence[0],
+            )
+            for contribution in result.primary_evidence
+        ),
+        member_mbti_summary=member_mbti_summary,
+        limitations=limitations,
+        result_status=result.result_status.value,
+    )
+
+
+def format_report_evidence(evidence: EvidenceItem) -> str:
+    if evidence.value_type == EvidenceValueType.RATIO and isinstance(evidence.value, int | float):
+        return f"{round(float(evidence.value) * 100)}%"
+    if isinstance(evidence.value, int | float):
+        rounded = round(float(evidence.value), 2)
+        if rounded.is_integer():
+            return str(int(rounded))
+        return f"{rounded:.2f}".rstrip("0").rstrip(".")
+    return str(evidence.value or evidence.metric)
 
 
 def run_mock_pipeline(rows: list[dict[str, str]]):
