@@ -30,4 +30,12 @@ Request and response types should be generated from or manually kept aligned wit
 - Server state: groups, members, transactions, analysis results, reports
 - Derived display state: formatted labels, chart-friendly series, graph layout
 
-Server state remains owned by FastAPI and PostgreSQL.
+Server state remains owned by FastAPI and PostgreSQL. Server data fetched by React is cached through RTK Query, not duplicated into feature Redux slices unless it is local UI state.
+
+## Authentication State
+
+- Access tokens are kept in Redux in-memory auth state and attached to API calls by RTK Query `prepareHeaders`.
+- Refresh token plaintext is not stored in Redux or browser persistent storage. FE Phase 1 isolates it behind in-memory `refreshTokenStorage`; page reloads require login again unless the backend later adopts HttpOnly cookies.
+- Passwords and form field contents remain local to React forms and are not copied into Redux.
+- On `401 AUTHENTICATION_REQUIRED`, RTK Query performs one refresh-token rotation attempt, retries the original request on success, and clears local session state on failure.
+- `403 PERMISSION_DENIED` is represented by the shared forbidden screen and role guard.
