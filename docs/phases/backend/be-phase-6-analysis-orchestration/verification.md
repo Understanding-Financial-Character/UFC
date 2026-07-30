@@ -1,7 +1,7 @@
 # BE Phase 6 - Analysis Orchestration Verification
 
 ## Verified Commit
-`9fb4390`
+Pending final report-retry concurrency commit.
 ## Verified At
 2026-07-30
 ## Environment
@@ -16,8 +16,8 @@ Docker Compose dev backend on PostgreSQL 16. Alembic was verified against isolat
 ## Results
 - Compose config: passed.
 - Alembic upgrade head on isolated PostgreSQL database: passed.
-- BE Phase 6 orchestration and persistence tests: 20 passed.
-- Full backend tests: 145 passed, 1 upstream FastAPI/Starlette TestClient deprecation warning.
+- BE Phase 6 orchestration and persistence tests: 23 passed.
+- Full backend tests: 148 passed, 1 upstream FastAPI/Starlette TestClient deprecation warning.
 - Ruff: passed.
 - Diff whitespace check: passed.
 ## API Evidence
@@ -27,6 +27,8 @@ Docker Compose dev backend on PostgreSQL 16. Alembic was verified against isolat
 - Analysis period filtering uses `Asia/Seoul` calendar boundaries converted to UTC.
 - Retry is rejected for completed runs and reserved for failed snapshot re-execution.
 - AI report-only retry updates the failed report on the same analysis run without increasing behavior metrics or changing the consumption MBTI result.
+- Concurrent AI report-only retry is rejected after the first request moves the run to `REPORT_GENERATING`.
+- AI report-only retry uses member MBTI summary from the persisted analysis snapshot, not current group member rows.
 - Legacy failed analyses with missing input snapshots return `409 ANALYSIS_SNAPSHOT_UNAVAILABLE`.
 - Other users receive `404 NOT_FOUND` for inaccessible analyses.
 - Active group run conflict returns `409 ANALYSIS_ALREADY_RUNNING`.

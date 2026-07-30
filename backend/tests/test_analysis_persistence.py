@@ -540,6 +540,67 @@ def test_legacy_failed_analysis_without_snapshot_returns_409(db: Session) -> Non
     assert exc_info.value.status_code == 409
 
 
+def test_report_retry_without_snapshot_returns_409(db: Session) -> None:
+    analysis_run = create_run(db, result_status=ResultStatus.PROVISIONAL)
+    repository = AnalysisResultRepository(db)
+    repository.add_behavior_metric(
+        analysis_run_id=analysis_run.id,
+        feature_code="REPEAT_MERCHANT_RATIO",
+        status=BehaviorFeatureStatus.AVAILABLE,
+        raw_value=Decimal("0.4200"),
+        normalized_score=Decimal("0.4200"),
+        unit=BehaviorFeatureUnit.COUNT_RATIO,
+        sample_count=37,
+        unavailable_reason=None,
+        evidence=[],
+        metric_metadata={},
+        schema_version="behavior-metrics-v1",
+        calculation_version="behavior-metrics-test-v1",
+    )
+    repository.save_consumption_mbti_result(
+        analysis_run_id=analysis_run.id,
+        mbti_type=ConsumptionMBTIType.ENFP,
+        ei_score=Decimal("0.6200"),
+        sn_score=Decimal("0.5800"),
+        tf_score=Decimal("0.5500"),
+        jp_score=Decimal("0.7100"),
+        confidence_level="LOW",
+        confidence_score=Decimal("0.4200"),
+        coverage=Decimal("0.8200"),
+        limitations=[],
+        result_metadata={"primaryEvidence": []},
+        schema_version="consumption-mbti-v1",
+        rule_version="consumption-mbti-v1",
+    )
+    repository.save_ai_report(
+        analysis_run_id=analysis_run.id,
+        status=AIReportStatus.FAILED,
+        report_content=None,
+        model_name=None,
+        prompt_version="grounded-report-v1",
+        latency_ms=None,
+        fallback_used=False,
+        fallback_reason=None,
+        repair_attempted=False,
+        validation_result={},
+        failure_reason="RuntimeError",
+        schema_version="grounded-ai-report-v1",
+    )
+    analysis_run.status = AnalysisRunStatus.PARTIALLY_COMPLETED
+    analysis_run.analysis_input_snapshot = {}
+    db.commit()
+
+    with pytest.raises(ApiException) as exc_info:
+        analysis_service.retry_analysis_report(
+            db,
+            analysis_run_id=analysis_run.id,
+            owner_user_id=analysis_run.group.owner_user_id,
+        )
+
+    assert exc_info.value.code == "ANALYSIS_SNAPSHOT_UNAVAILABLE"
+    assert exc_info.value.status_code == 409
+
+
 def test_postgres_analysis_persistence_schema_types() -> None:
     database_url = os.getenv("DATABASE_URL")
     if not database_url:

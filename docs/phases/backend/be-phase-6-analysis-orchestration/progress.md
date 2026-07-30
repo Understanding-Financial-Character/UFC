@@ -18,6 +18,8 @@ IMPLEMENTED
 - Analysis periods use the canonical `Asia/Seoul` calendar boundary before UTC persistence/querying.
 - Failed run retry is limited to `FAILED` analyses and reuses the original persisted analysis input snapshot.
 - AI report-only retry is available for `PARTIALLY_COMPLETED` runs with failed report rows, without recalculating deterministic outputs.
+- AI report-only retry locks the analysis run and rejects concurrent retry attempts.
+- AI report-only retry uses member MBTI summary from the persisted analysis input snapshot.
 - Legacy failed runs without valid snapshots return `ANALYSIS_SNAPSHOT_UNAVAILABLE` instead of leaking a server error.
 - API response DTOs that do not expose SQLAlchemy entities or raw transaction arrays.
 ## Remaining
@@ -37,6 +39,7 @@ Frontend polling integration remains a later frontend phase.
 - Review fixes verified: `a9bf962`
 - Verification record: `c3afd61`
 - Report retry review fix: `9fb4390`
+- Pending report retry concurrency/snapshot fix commit.
 ## Blockers
 None.
 ## Handover Notes

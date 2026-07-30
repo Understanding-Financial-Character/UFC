@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import csv
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
 
 from fastapi.testclient import TestClient
@@ -44,6 +46,28 @@ class CountingReportGenerator(JsonReportGenerator):
 
     def generate(self, request: ReportGenerationRequest) -> ReportGenerationResult:
         self.call_count += 1
+        return super().generate(request)
+
+
+class CapturingReportGenerator(JsonReportGenerator):
+    def __init__(self) -> None:
+        self.last_request: ReportGenerationRequest | None = None
+
+    def generate(self, request: ReportGenerationRequest) -> ReportGenerationResult:
+        self.last_request = request
+        return super().generate(request)
+
+
+class BlockingReportGenerator(JsonReportGenerator):
+    def __init__(self) -> None:
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.call_count = 0
+
+    def generate(self, request: ReportGenerationRequest) -> ReportGenerationResult:
+        self.call_count += 1
+        self.started.set()
+        assert self.release.wait(timeout=5)
         return super().generate(request)
 
 
@@ -355,3 +379,87 @@ def test_failed_ai_report_can_be_retried_without_recomputing_analysis(monkeypatc
     assert retry_body["ai_report"]["status"] == "COMPLETED"
     assert len(retry_body["behavior_metrics"]) == behavior_metric_count
     assert retry_body["consumption_mbti_result"] == consumption_result
+
+
+def test_report_retry_uses_member_mbti_summary_from_snapshot(monkeypatch) -> None:
+    client = build_sqlite_client()
+    user, group = setup_ready_group_with_transactions(client)
+    monkeypatch.setattr(
+        analysis_service,
+        "build_report_generator",
+        lambda _settings: RuntimeFailingReportGenerator(),
+    )
+    first_response = client.post(
+        f"/api/v1/groups/{group['group_id']}/analyses",
+        headers=auth_headers(user),
+        json={"period_start": "2026-07-01", "period_end": "2026-07-15"},
+    )
+    assert first_response.status_code == 202
+    group_response = client.get(f"/api/v1/groups/{group['group_id']}", headers=auth_headers(user))
+    assert group_response.status_code == 200
+    istj_member = next(
+        member for member in group_response.json()["members"] if member["mbti"] == "ISTJ"
+    )
+    update_response = client.patch(
+        f"/api/v1/groups/{group['group_id']}/members/{istj_member['member_id']}",
+        headers=auth_headers(user),
+        json={"mbti": "ENFP"},
+    )
+    assert update_response.status_code == 200
+
+    capture_generator = CapturingReportGenerator()
+    monkeypatch.setattr(
+        analysis_service,
+        "build_report_generator",
+        lambda _settings: capture_generator,
+    )
+    retry_response = client.post(
+        f"/api/v1/analyses/{first_response.json()['analysis_id']}/report/retry",
+        headers=auth_headers(user),
+    )
+
+    assert retry_response.status_code == 202
+    assert capture_generator.last_request is not None
+    assert capture_generator.last_request.member_mbti_summary == {"ENFP": 1, "ISTJ": 1}
+
+
+def test_concurrent_report_retry_is_rejected(monkeypatch) -> None:
+    client = build_sqlite_client()
+    user, group = setup_ready_group_with_transactions(client)
+    monkeypatch.setattr(
+        analysis_service,
+        "build_report_generator",
+        lambda _settings: RuntimeFailingReportGenerator(),
+    )
+    first_response = client.post(
+        f"/api/v1/groups/{group['group_id']}/analyses",
+        headers=auth_headers(user),
+        json={"period_start": "2026-07-01", "period_end": "2026-07-15"},
+    )
+    assert first_response.status_code == 202
+    analysis_id = first_response.json()["analysis_id"]
+
+    blocking_generator = BlockingReportGenerator()
+    monkeypatch.setattr(
+        analysis_service,
+        "build_report_generator",
+        lambda _settings: blocking_generator,
+    )
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        first_retry = executor.submit(
+            client.post,
+            f"/api/v1/analyses/{analysis_id}/report/retry",
+            headers=auth_headers(user),
+        )
+        assert blocking_generator.started.wait(timeout=5)
+        second_response = client.post(
+            f"/api/v1/analyses/{analysis_id}/report/retry",
+            headers=auth_headers(user),
+        )
+        blocking_generator.release.set()
+        first_retry_response = first_retry.result(timeout=5)
+
+    assert second_response.status_code == 409
+    assert second_response.json()["error"]["code"] == "ANALYSIS_REPORT_RETRY_NOT_ALLOWED"
+    assert first_retry_response.status_code == 202
+    assert blocking_generator.call_count == 1

@@ -6,7 +6,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -283,13 +283,10 @@ def retry_analysis(
         )
     group = get_owned_group_for_update(db, analysis_run.group_id, owner_user_id)
     prevent_concurrent_analysis(db, group.id)
-    if not has_valid_analysis_snapshot(analysis_run.analysis_input_snapshot):
-        raise ApiException(
-            code="ANALYSIS_SNAPSHOT_UNAVAILABLE",
-            message="This analysis was created before input snapshots were supported and cannot be retried.",
-            status_code=409,
-        )
-    analysis_input = analysis_input_from_snapshot(analysis_run.analysis_input_snapshot)
+    analysis_input = parse_analysis_snapshot_or_raise(
+        analysis_run.analysis_input_snapshot,
+        message="This analysis was created before input snapshots were supported and cannot be retried.",
+    )
     repository = AnalysisResultRepository(db)
     retry_run = repository.create_analysis_run(
         analysis_run_id=str(uuid.uuid4()),
@@ -324,7 +321,7 @@ def retry_analysis_report(
     owner_user_id: str,
     report_service: GroundedReportService | None = None,
 ) -> AnalysisExecutionResult:
-    analysis_run = require_owned_analysis_run(db, analysis_run_id, owner_user_id)
+    analysis_run = require_owned_analysis_run_for_update(db, analysis_run_id, owner_user_id)
     if (
         analysis_run.status != AnalysisRunStatus.PARTIALLY_COMPLETED
         or analysis_run.ai_report is None
@@ -341,6 +338,12 @@ def retry_analysis_report(
         raise ApiException(
             code="ANALYSIS_REPORT_RETRY_NOT_ALLOWED",
             message="Analysis result status is required before retrying the report.",
+            status_code=409,
+        )
+    if not has_valid_analysis_snapshot(analysis_run.analysis_input_snapshot):
+        raise ApiException(
+            code="ANALYSIS_SNAPSHOT_UNAVAILABLE",
+            message="This analysis was created before input snapshots were supported and cannot retry reports.",
             status_code=409,
         )
     result_status = analysis_run.result_status
@@ -380,6 +383,18 @@ def retry_analysis_report(
 
 def require_owned_analysis_run(db: Session, analysis_run_id: str, owner_user_id: str) -> AnalysisRun:
     statement = analysis_run_query().where(AnalysisRun.id == analysis_run_id)
+    analysis_run = db.scalar(statement)
+    if analysis_run is None or analysis_run.group.owner_user_id != owner_user_id:
+        raise ApiException(code="NOT_FOUND", message="Analysis was not found.", status_code=404)
+    return analysis_run
+
+
+def require_owned_analysis_run_for_update(
+    db: Session,
+    analysis_run_id: str,
+    owner_user_id: str,
+) -> AnalysisRun:
+    statement = analysis_run_query().where(AnalysisRun.id == analysis_run_id).with_for_update()
     analysis_run = db.scalar(statement)
     if analysis_run is None or analysis_run.group.owner_user_id != owner_user_id:
         raise ApiException(code="NOT_FOUND", message="Analysis was not found.", status_code=404)
@@ -640,6 +655,23 @@ def analysis_input_from_snapshot(snapshot: dict[str, Any]) -> AnalysisInput:
         ),
         schema_version=snapshot["schemaVersion"],
     )
+
+
+def parse_analysis_snapshot_or_raise(snapshot: dict[str, Any], *, message: str) -> AnalysisInput:
+    if not has_valid_analysis_snapshot(snapshot):
+        raise ApiException(
+            code="ANALYSIS_SNAPSHOT_UNAVAILABLE",
+            message=message,
+            status_code=409,
+        )
+    try:
+        return analysis_input_from_snapshot(snapshot)
+    except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
+        raise ApiException(
+            code="ANALYSIS_SNAPSHOT_UNAVAILABLE",
+            message="The stored analysis snapshot is invalid.",
+            status_code=409,
+        ) from exc
 
 
 def has_valid_analysis_snapshot(snapshot: dict[str, Any]) -> bool:
@@ -936,7 +968,7 @@ def grounded_report_input_from_persisted_result(
             persisted_evidence_item(item)
             for item in consumption_result.result_metadata.get("primaryEvidence", [])
         ),
-        member_mbti_summary=member_mbti_summary(analysis_run.group.members),
+        member_mbti_summary=member_mbti_summary_from_snapshot(analysis_run.analysis_input_snapshot),
         limitations=tuple(consumption_result.limitations),
         result_status=analysis_run.result_status.value,
     )
@@ -951,6 +983,18 @@ def persisted_evidence_item(item: dict[str, Any]) -> EvidenceItem:
         basis=basis,
         value_type=EvidenceValueType.SCORE,
     )
+
+
+def member_mbti_summary_from_snapshot(snapshot: dict[str, Any]) -> dict[str, int]:
+    summary: dict[str, int] = {}
+    for member in snapshot.get("members", []):
+        if not isinstance(member, dict):
+            continue
+        mbti_type = member.get("mbtiType")
+        if not mbti_type:
+            continue
+        summary[mbti_type] = summary.get(mbti_type, 0) + 1
+    return summary
 
 
 def report_input_status(report_input: GroundedReportInput) -> ResultStatus:

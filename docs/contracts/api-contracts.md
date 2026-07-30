@@ -806,6 +806,8 @@ Retry is allowed only for `FAILED` runs. It creates a new analysis run linked to
 
 Retry AI Report is allowed only when the analysis run is `PARTIALLY_COMPLETED`, the existing AI report row is `FAILED`, and deterministic behavior metrics plus consumption MBTI results already exist. It does not create a new analysis run and does not re-read transactions, preprocess input, recalculate behavior metrics, or rerun the rule engine.
 
+Report retry locks the target analysis run before validating retry state. A concurrent retry that observes the run after it has moved to `REPORT_GENERATING` is rejected with `ANALYSIS_REPORT_RETRY_NOT_ALLOWED`. Report retry builds member MBTI summary from the persisted analysis input snapshot, not from current group member rows.
+
 ### Get AI Report
 
 - Method and path: `GET /analyses/{analysisId}/report`
