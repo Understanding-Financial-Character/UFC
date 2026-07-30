@@ -84,6 +84,29 @@ Qwen3 must not receive user email, user name or nickname, internal user id, full
 
 Qwen3 failure does not invalidate deterministic analysis output.
 
+Evidence items sent to Qwen3 must include a value type:
+
+```json
+{
+  "metric": "CATEGORY_CONCENTRATION",
+  "value": 0.64,
+  "valueType": "RATIO",
+  "basis": "FOOD 카테고리가 전체 지출의 64%를 차지"
+}
+```
+
+`valueType` values:
+
+- `RATIO`: decimal ratio such as `0.64`; reports may use `0.64` or `64%`.
+- `PERCENTAGE`: percentage value such as `64`; reports may use `64` or `64%`.
+- `COUNT`: count value; reports may use the original number only.
+- `AMOUNT`: monetary amount; reports may use the original number only.
+- `DURATION`: duration value; reports may use the original number only.
+- `SCORE`: score value; reports may use the original number only.
+- `TEXT`: non-numeric value.
+
+Numeric grounding must not convert count, amount, duration, score, or text evidence into percentages.
+
 ## Grounded AI Report
 
 AI Phase 2 defines `grounded-ai-report-v1`.

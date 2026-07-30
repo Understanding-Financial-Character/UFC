@@ -16,6 +16,7 @@ from app.ai.exceptions import (
 )
 from app.ai.report_generator import (
     EvidenceItem,
+    EvidenceValueType,
     ReportGenerationRequest,
     ReportGenerator,
 )
@@ -174,7 +175,12 @@ class GroundedPromptContext:
             "axis_scores": self.axis_scores,
             "confidence": self.confidence,
             "evidence": [
-                {"metric": item.metric, "value": item.value, "basis": item.basis}
+                {
+                    "metric": item.metric,
+                    "value": item.value,
+                    "valueType": item.value_type.value,
+                    "basis": item.basis,
+                }
                 for item in self.evidence
             ],
             "member_mbti_summary": self.member_mbti_summary,
@@ -331,19 +337,40 @@ def validate_supported_numbers(text: str, context: GroundedPromptContext) -> Non
 
 
 def supported_number_tokens(context: GroundedPromptContext) -> set[str]:
-    values: set[float | int] = set()
-    collect_numeric_values(context.axis_scores, values)
-    collect_numeric_values(context.confidence, values)
-    values.update(context.member_mbti_summary.values())
-    for item in context.evidence:
-        if isinstance(item.value, int | float):
-            values.add(item.value)
     tokens: set[str] = set()
-    for value in values:
-        tokens.add(format_number(value))
-        tokens.add(format_number(value * 100))
-        tokens.add(f"{format_number(value * 100)}%")
+    ratio_values: set[float | int] = set()
+    collect_numeric_values(context.axis_scores, ratio_values)
+    collect_numeric_values(context.confidence, ratio_values)
+    for value in ratio_values:
+        add_ratio_number_tokens(tokens, value)
+    for value in context.member_mbti_summary.values():
+        add_plain_number_tokens(tokens, value)
+    for item in context.evidence:
+        add_evidence_number_tokens(tokens, item)
     return tokens
+
+
+def add_evidence_number_tokens(tokens: set[str], item: EvidenceItem) -> None:
+    if not isinstance(item.value, int | float):
+        return
+    if item.value_type == EvidenceValueType.RATIO:
+        add_ratio_number_tokens(tokens, item.value)
+        return
+    if item.value_type == EvidenceValueType.PERCENTAGE:
+        tokens.add(format_number(item.value))
+        tokens.add(f"{format_number(item.value)}%")
+        return
+    add_plain_number_tokens(tokens, item.value)
+
+
+def add_ratio_number_tokens(tokens: set[str], value: float) -> None:
+    tokens.add(format_number(value))
+    tokens.add(format_number(value * 100))
+    tokens.add(f"{format_number(value * 100)}%")
+
+
+def add_plain_number_tokens(tokens: set[str], value: float) -> None:
+    tokens.add(format_number(value))
 
 
 def collect_numeric_values(value: Any, values: set[float | int]) -> None:
@@ -368,6 +395,24 @@ def format_number(value: float) -> str:
     return f"{rounded:.2f}".rstrip("0").rstrip(".")
 
 
+def evidence_display(item: EvidenceItem) -> str:
+    if item.value is None:
+        return item.metric
+    if not isinstance(item.value, int | float):
+        return f"{item.metric} {item.value}"
+    if item.value_type == EvidenceValueType.RATIO:
+        return f"{item.metric} {format_number(item.value * 100)}%"
+    if item.value_type == EvidenceValueType.PERCENTAGE:
+        return f"{item.metric} {format_number(item.value)}%"
+    if item.value_type == EvidenceValueType.COUNT:
+        return f"{item.metric} {format_number(item.value)}건"
+    if item.value_type == EvidenceValueType.AMOUNT:
+        return f"{item.metric} {format_number(item.value)}원"
+    if item.value_type == EvidenceValueType.DURATION:
+        return f"{item.metric} {format_number(item.value)}일"
+    return f"{item.metric} {format_number(item.value)}"
+
+
 def assert_no_prohibited_input(payload: Any, path: str = "$") -> None:
     if isinstance(payload, dict):
         for key, child in payload.items():
@@ -387,14 +432,7 @@ def assert_no_prohibited_input(payload: Any, path: str = "$") -> None:
 def build_template_report(report_input: GroundedReportInput) -> GroundedReport:
     context = report_input.prompt_context()
     mbti = context.spending_mbti or "판정 보류"
-    top_metric = context.evidence[0].metric if context.evidence else "사용 가능한 근거 부족"
-    top_value = context.evidence[0].value if context.evidence else None
-    if isinstance(top_value, int | float):
-        top_basis = f"{top_metric} {format_number(top_value * 100)}%"
-    elif top_value is not None:
-        top_basis = f"{top_metric} 근거"
-    else:
-        top_basis = top_metric
+    top_basis = evidence_display(context.evidence[0]) if context.evidence else "사용 가능한 근거 부족"
     limitation_text = (
         "제공된 제한사항을 함께 고려해야 합니다."
         if context.limitations

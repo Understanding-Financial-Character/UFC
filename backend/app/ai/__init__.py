@@ -8,6 +8,7 @@ from app.ai.grounded_report import (
 )
 from app.ai.report_generator import (
     EvidenceItem,
+    EvidenceValueType,
     FakeReportGenerator,
     FallbackReportGenerator,
     OllamaHealth,
@@ -20,6 +21,7 @@ from app.ai.report_generator import (
 
 __all__ = [
     "EvidenceItem",
+    "EvidenceValueType",
     "FakeReportGenerator",
     "FallbackReportGenerator",
     "GroundedReport",

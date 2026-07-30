@@ -4,8 +4,10 @@
 `6e618d6` feat: add grounded qwen report validation
 
 `6db1d21` fix: harden grounded report validation
+
+Evidence value type hardening changes are verified locally before commit.
 ## Verified At
-2026-07-30 11:21:25 KST
+2026-07-30 11:31:37 KST
 ## Environment
 macOS local development environment with Docker Compose.
 ## Commands
@@ -21,8 +23,8 @@ macOS local development environment with Docker Compose.
 ## Results
 - Compose config passed.
 - Alembic upgrade passed after local PostgreSQL volume reset.
-- Grounded report unit tests passed: 13 tests.
-- Full backend test suite passed: 81 tests.
+- Grounded report unit tests passed: 17 tests.
+- Full backend test suite passed: 85 tests.
 - Backend Ruff passed.
 - Initial `make verify` failed at frontend build due stale frontend Docker image after `main` dependency changes.
 - Rebuilding the frontend image fixed the stale dependency issue.
@@ -35,8 +37,9 @@ No migration or model change was added in this phase.
 - Grounded report input excludes email, nickname, internal user id, full transactions, transaction memo text, ciphertext, token, and secret keys.
 - Report validation rejects unsupported numeric claims, changed spending MBTI, real diagnosis wording, financial product recommendation wording, and unknown output fields.
 - Numeric validation uses only the same top-five evidence prompt context sent to Qwen3.
+- Evidence value type prevents count, amount, duration, score, and text evidence from being validated as percentages.
 - Prohibited input validation checks nested keys structurally and rejects email-like values.
-- Template fallback uses structured metric/value text instead of raw basis or raw limitations.
+- Template fallback uses structured metric/value text instead of raw basis or raw limitations and formats values by evidence type.
 - Qwen3 receives only spending MBTI, axis scores, confidence, top evidence, member MBTI summary, limitations, and result status.
 ## Known Limitations
 - Real `qwen3:4b` generation was not executed locally.

@@ -12,7 +12,12 @@ from app.ai.grounded_report import (
     parse_grounded_report,
     validate_grounding,
 )
-from app.ai.report_generator import EvidenceItem, ReportGenerationRequest, ReportGenerationResult
+from app.ai.report_generator import (
+    EvidenceItem,
+    EvidenceValueType,
+    ReportGenerationRequest,
+    ReportGenerationResult,
+)
 
 VALID_REPORT_JSON = """
 {
@@ -150,6 +155,56 @@ def test_template_fallback_accepts_period_number_in_basis_and_limitations() -> N
     assert "3개월" not in result.report.combined_text()
 
 
+def test_template_fallback_does_not_convert_count_to_percent() -> None:
+    report_input = GroundedReportInput(
+        spending_mbti="ENFP",
+        axis_scores={"EI": 0.64, "SN": 0.52, "TF": 0.48, "JP": 0.7},
+        confidence={"level": "MEDIUM", "score": 0.64},
+        evidence=(
+            EvidenceItem(
+                metric="WEEKEND_TRANSACTION_COUNT",
+                value=12,
+                value_type=EvidenceValueType.COUNT,
+                basis="주말 거래는 12건입니다.",
+            ),
+        ),
+        member_mbti_summary={"INTJ": 1, "ENFP": 1},
+        limitations=("표본 기간이 짧습니다.",),
+        result_status="PROVISIONAL",
+    )
+    service = GroundedReportService(generator=TimeoutGenerator())
+
+    result = service.generate(report_input)
+
+    assert "WEEKEND_TRANSACTION_COUNT 12건" in result.report.summary
+    assert "1200%" not in result.report.combined_text()
+
+
+def test_template_fallback_does_not_convert_amount_to_percent() -> None:
+    report_input = GroundedReportInput(
+        spending_mbti="ENFP",
+        axis_scores={"EI": 0.64, "SN": 0.52, "TF": 0.48, "JP": 0.7},
+        confidence={"level": "MEDIUM", "score": 0.64},
+        evidence=(
+            EvidenceItem(
+                metric="AVERAGE_PAYMENT_AMOUNT",
+                value=35000,
+                value_type=EvidenceValueType.AMOUNT,
+                basis="평균 결제 금액은 35,000원입니다.",
+            ),
+        ),
+        member_mbti_summary={"INTJ": 1, "ENFP": 1},
+        limitations=("표본 기간이 짧습니다.",),
+        result_status="PROVISIONAL",
+    )
+    service = GroundedReportService(generator=TimeoutGenerator())
+
+    result = service.generate(report_input)
+
+    assert "AVERAGE_PAYMENT_AMOUNT 35000원" in result.report.summary
+    assert "3500000%" not in result.report.combined_text()
+
+
 def test_validate_grounding_rejects_changed_mbti() -> None:
     report = parse_grounded_report(VALID_REPORT_JSON.replace("ENFP", "ISTJ", 1))
 
@@ -162,6 +217,40 @@ def test_validate_grounding_rejects_unsupported_number() -> None:
 
     with pytest.raises(GroundedReportValidationError):
         validate_grounding(report, build_input())
+
+
+def test_validator_rejects_percent_conversion_for_count_evidence() -> None:
+    report_input = GroundedReportInput(
+        spending_mbti="ENFP",
+        axis_scores={"EI": 0.64, "SN": 0.52, "TF": 0.48, "JP": 0.7},
+        confidence={"level": "MEDIUM", "score": 0.64},
+        evidence=(
+            EvidenceItem(
+                metric="WEEKEND_TRANSACTION_COUNT",
+                value=12,
+                value_type=EvidenceValueType.COUNT,
+                basis="주말 거래는 12건입니다.",
+            ),
+        ),
+        member_mbti_summary={"INTJ": 1, "ENFP": 1},
+        limitations=("표본 기간이 짧습니다.",),
+        result_status="PROVISIONAL",
+    )
+    report = parse_grounded_report(VALID_REPORT_JSON.replace("64%", "1200%", 1))
+
+    with pytest.raises(GroundedReportValidationError):
+        validate_grounding(report, report_input)
+
+
+def test_ratio_evidence_allows_decimal_and_percentage_forms() -> None:
+    report_input = build_input()
+    report = parse_grounded_report(
+        VALID_REPORT_JSON.replace("64% 근거로", "0.64와 64% 근거로")
+    )
+
+    validation = validate_grounding(report, report_input)
+
+    assert validation["evidenceNumbers"] is True
 
 
 def test_number_from_unsent_sixth_evidence_is_rejected() -> None:

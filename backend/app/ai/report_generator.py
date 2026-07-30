@@ -4,6 +4,7 @@ import json
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field, replace
+from enum import StrEnum
 from typing import Any, Protocol
 from urllib.parse import urljoin
 
@@ -19,6 +20,16 @@ from app.core.config import Settings
 SAFE_PROMPT_PREFIX = "/no_think\n"  # Qwen3 non-thinking mode hint for Ollama prompts.
 
 
+class EvidenceValueType(StrEnum):
+    RATIO = "RATIO"
+    PERCENTAGE = "PERCENTAGE"
+    COUNT = "COUNT"
+    AMOUNT = "AMOUNT"
+    DURATION = "DURATION"
+    SCORE = "SCORE"
+    TEXT = "TEXT"
+
+
 class ReportGenerator(Protocol):
     def generate(self, request: ReportGenerationRequest) -> ReportGenerationResult:
         raise NotImplementedError
@@ -29,6 +40,7 @@ class EvidenceItem:
     metric: str
     value: float | int | str | None
     basis: str
+    value_type: EvidenceValueType = EvidenceValueType.RATIO
 
 
 @dataclass(frozen=True)
@@ -48,7 +60,12 @@ class ReportGenerationRequest:
             "axisScores": self.axis_scores,
             "confidence": self.confidence,
             "evidence": [
-                {"metric": item.metric, "value": item.value, "basis": item.basis}
+                {
+                    "metric": item.metric,
+                    "value": item.value,
+                    "valueType": item.value_type.value,
+                    "basis": item.basis,
+                }
                 for item in self.evidence
             ],
             "memberMbtiSummary": self.member_mbti_summary,
