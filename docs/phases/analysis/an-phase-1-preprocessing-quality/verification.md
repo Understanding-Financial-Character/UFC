@@ -1,7 +1,7 @@
 # AN Phase 1 - Preprocessing and Data Quality Verification
 
 ## Verified Commit
-`951c0ae`
+Pending P1 review-fix commit.
 ## Verified At
 2026-07-30
 ## Environment
@@ -12,14 +12,17 @@ Docker Compose dev backend on PostgreSQL 16.
 - `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest tests/test_analysis_preprocessing.py`
 - `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend pytest`
 - `docker compose -f compose.yaml -f compose.dev.yaml run --rm backend ruff check app tests`
+- `git fetch origin main`
+- `git diff --check origin/main...HEAD`
 - `git diff --check`
 ## Results
 - Compose config: passed.
 - Alembic upgrade head: passed.
-- AN Phase 1 tests: 5 passed.
-- Full backend tests: 55 passed, 1 upstream deprecation warning from FastAPI/Starlette TestClient.
+- AN Phase 1 tests: 7 passed.
+- Full backend tests: 57 passed, 1 upstream deprecation warning from FastAPI/Starlette TestClient.
 - Ruff: passed.
-- Diff whitespace check: passed.
+- CI-style committed diff whitespace check: pending final commit.
+- Working tree diff whitespace check: passed.
 ## API Evidence
 Not applicable.
 ## DB Evidence

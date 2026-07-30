@@ -7,6 +7,8 @@ IMPLEMENTED
 - Withdrawal-centered preprocessing that excludes deposits, refunds, transfers, adjustments, and source-excluded transactions with audit reasons.
 - UTC datetime normalization, category-code normalization, merchant-key normalization, and tri-state boolean preservation.
 - Minimum transaction count, minimum analysis period, category coverage, merchant coverage, synthetic-data provisional handling, and deterministic quality score.
+- Blocking data sufficiency reasons now return `INSUFFICIENT_DATA`, while eligible runs with coverage or synthetic limitations return `PROVISIONAL`.
+- Eligibility uses observed normalized transaction span, validates transactions are inside the requested period, and rejects transaction-level source type mismatches.
 - Unit tests for preprocessing, data quality, insufficient data, invalid inputs, and nullable signal preservation.
 ## Remaining
 No AN Phase 1 implementation work remains. Later phases own feature calculation, axis scoring, rule engine execution, persistence, API routing, and Qwen3 usage.
@@ -17,7 +19,7 @@ None.
 ## Linked PR
 Not assigned.
 ## Commits
-`951c0ae`
+`951c0ae`, pending P1 review-fix commit.
 ## Blockers
 None.
 ## Handover Notes

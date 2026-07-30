@@ -15,6 +15,13 @@ MIN_ANALYZABLE_WITHDRAWALS = 10
 MIN_ANALYSIS_PERIOD_DAYS = 14
 MIN_CATEGORY_COVERAGE = 0.7
 MIN_MERCHANT_COVERAGE = 0.5
+BLOCKING_REASONS = frozenset(
+    {
+        ProvisionalReason.NO_ANALYZABLE_WITHDRAWALS,
+        ProvisionalReason.INSUFFICIENT_TRANSACTION_COUNT,
+        ProvisionalReason.INSUFFICIENT_ANALYSIS_PERIOD,
+    }
+)
 
 
 def calculate_coverage(transactions: tuple[NormalizedTransaction, ...]) -> CoverageReport:
@@ -34,7 +41,8 @@ def build_data_quality_report(
     normalized_transactions: tuple[NormalizedTransaction, ...],
     excluded_count: int,
 ) -> DataQualityReport:
-    period_days = calculate_period_days(analysis_input)
+    requested_period_days = calculate_requested_period_days(analysis_input)
+    observed_period_days = calculate_observed_period_days(normalized_transactions)
     coverage = calculate_coverage(normalized_transactions)
     provisional_reasons: list[ProvisionalReason] = []
     limitations: list[str] = []
@@ -45,9 +53,9 @@ def build_data_quality_report(
     if len(normalized_transactions) < MIN_ANALYZABLE_WITHDRAWALS:
         provisional_reasons.append(ProvisionalReason.INSUFFICIENT_TRANSACTION_COUNT)
         limitations.append("Transaction count is below the minimum analysis threshold.")
-    if period_days < MIN_ANALYSIS_PERIOD_DAYS:
+    if observed_period_days < MIN_ANALYSIS_PERIOD_DAYS:
         provisional_reasons.append(ProvisionalReason.INSUFFICIENT_ANALYSIS_PERIOD)
-        limitations.append("Analysis period is shorter than the minimum observation window.")
+        limitations.append("Observed transaction span is shorter than the minimum window.")
     if coverage.category_coverage < MIN_CATEGORY_COVERAGE:
         provisional_reasons.append(ProvisionalReason.LOW_CATEGORY_COVERAGE)
         limitations.append("Category coverage is too low for complete category-based evidence.")
@@ -59,12 +67,10 @@ def build_data_quality_report(
         limitations.append("Synthetic or mock data should be treated as provisional evidence.")
 
     unique_reasons = tuple(dict.fromkeys(provisional_reasons))
-    analysis_eligible = (
-        normalized_transactions
-        and len(normalized_transactions) >= MIN_ANALYZABLE_WITHDRAWALS
-        and period_days >= MIN_ANALYSIS_PERIOD_DAYS
+    analysis_eligible = not any(
+        reason in BLOCKING_REASONS for reason in unique_reasons
     )
-    if not normalized_transactions:
+    if not analysis_eligible:
         result_status = ResultStatus.INSUFFICIENT_DATA
     elif unique_reasons:
         result_status = ResultStatus.PROVISIONAL
@@ -73,7 +79,7 @@ def build_data_quality_report(
 
     score = calculate_quality_score(
         included_count=len(normalized_transactions),
-        period_days=period_days,
+        observed_period_days=observed_period_days,
         category_coverage=coverage.category_coverage,
         merchant_coverage=coverage.merchant_coverage,
         is_synthetic=analysis_input.is_synthetic,
@@ -81,33 +87,43 @@ def build_data_quality_report(
     return DataQualityReport(
         included_count=len(normalized_transactions),
         excluded_count=excluded_count,
-        analysis_period_days=period_days,
+        requested_period_days=requested_period_days,
+        observed_period_days=observed_period_days,
+        analysis_period_days=observed_period_days,
         category_coverage=round(coverage.category_coverage, 4),
         merchant_coverage=round(coverage.merchant_coverage, 4),
         data_quality_score=score,
-        analysis_eligible=bool(analysis_eligible),
+        analysis_eligible=analysis_eligible,
         result_status_candidate=result_status,
         provisional_reasons=unique_reasons,
         limitations=tuple(dict.fromkeys(limitations)),
     )
 
 
-def calculate_period_days(analysis_input: AnalysisInput) -> int:
+def calculate_requested_period_days(analysis_input: AnalysisInput) -> int:
     started_at = analysis_input.analysis_period.started_at.astimezone(UTC)
     ended_at = analysis_input.analysis_period.ended_at.astimezone(UTC)
     delta = ended_at - started_at
     return max(delta.days + 1, 0)
 
 
+def calculate_observed_period_days(transactions: tuple[NormalizedTransaction, ...]) -> int:
+    if not transactions:
+        return 0
+    started_at = min(transaction.occurred_at for transaction in transactions)
+    ended_at = max(transaction.occurred_at for transaction in transactions)
+    return (ended_at.date() - started_at.date()).days + 1
+
+
 def calculate_quality_score(
     included_count: int,
-    period_days: int,
+    observed_period_days: int,
     category_coverage: float,
     merchant_coverage: float,
     is_synthetic: bool,
 ) -> float:
     count_score = min(included_count / MIN_ANALYZABLE_WITHDRAWALS, 1.0)
-    period_score = min(period_days / MIN_ANALYSIS_PERIOD_DAYS, 1.0)
+    period_score = min(observed_period_days / MIN_ANALYSIS_PERIOD_DAYS, 1.0)
     synthetic_penalty = 0.9 if is_synthetic else 1.0
     score = (
         0.35 * count_score

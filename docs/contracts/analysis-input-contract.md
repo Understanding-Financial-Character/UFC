@@ -42,15 +42,15 @@ The Backend does not decide final feature availability, axis scores, or consumpt
 - `analysisId`: UUID string for the analysis run.
 - `groupId`: UUID string for the group.
 - `groupPurposeType`: canonical group purpose code: `DATE_EXPENSE`, `LIVING_EXPENSE`, `TRAVEL`, `REGULAR_MEETING`, `WEDDING_PREPARATION`, `HOBBY`, or `OTHER`.
-- `analysisPeriod.startedAt`: inclusive start datetime.
-- `analysisPeriod.endedAt`: inclusive end datetime.
+- `analysisPeriod.startedAt`: inclusive start datetime with timezone.
+- `analysisPeriod.endedAt`: inclusive end datetime with timezone.
 - `sourceType`: canonical source type: `CSV`, `MOCK`, `MANUAL`, or `INTERNAL_TEST`.
 - `isSynthetic`: `true` only for generated/mock/test datasets.
 - `members`: members participating in the analysis.
 - `transactions`: transactions in the requested analysis period.
 - `schemaVersion`: `analysis-input-v1`.
 
-`sourceType=MOCK` or `INTERNAL_TEST` requires `isSynthetic=true`. Synthetic runs must produce `PROVISIONAL` or lower-confidence result handling downstream.
+`sourceType=MOCK` or `INTERNAL_TEST` requires `isSynthetic=true`. Synthetic runs must produce `PROVISIONAL` or lower-confidence result handling downstream unless blocking data sufficiency reasons make the run `INSUFFICIENT_DATA`.
 
 ## Member Fields
 
@@ -61,7 +61,7 @@ The Backend does not decide final feature availability, axis scores, or consumpt
 
 - `transactionId`: source transaction id.
 - `memberId`: nullable member id when a transaction can be attributed to one group member.
-- `occurredAt`: transaction datetime
+- `occurredAt`: transaction datetime with timezone within the inclusive `analysisPeriod`
 - `amount`: positive absolute amount
 - `transactionType`: `WITHDRAWAL`, `DEPOSIT`, `REFUND`, `ADJUSTMENT`, or `TRANSFER`
 - `categoryCode`: normalized category code
@@ -70,7 +70,7 @@ The Backend does not decide final feature availability, axis scores, or consumpt
 - `isSharedExpense`: nullable boolean
 - `isPlanned`: nullable boolean
 - `isRecurring`: nullable boolean
-- `sourceType`: transaction-level source marker, defaults to the top-level `sourceType` when omitted
+- `sourceType`: transaction-level source marker, defaults to the top-level `sourceType` when omitted and must match the top-level value when present
 
 `WITHDRAWAL` rows are analysis candidates. `DEPOSIT`, `REFUND`, `ADJUSTMENT`, and `TRANSFER` rows are passed so AN Phase 1 can apply a documented filtering policy, but behavior metrics must not treat them as ordinary spending.
 
@@ -109,8 +109,8 @@ Tri-state boolean meaning:
   "groupId": "uuid",
   "groupPurposeType": "TRAVEL",
   "analysisPeriod": {
-    "startedAt": "2026-07-01T00:00:00",
-    "endedAt": "2026-07-31T23:59:59"
+    "startedAt": "2026-07-01T00:00:00+09:00",
+    "endedAt": "2026-07-31T23:59:59+09:00"
   },
   "sourceType": "MOCK",
   "isSynthetic": true,
@@ -124,7 +124,7 @@ Tri-state boolean meaning:
     {
       "transactionId": "uuid",
       "memberId": "uuid",
-      "occurredAt": "2026-07-01T12:30:00",
+      "occurredAt": "2026-07-01T12:30:00+09:00",
       "amount": 32000,
       "transactionType": "WITHDRAWAL",
       "categoryCode": "FOOD",
@@ -157,6 +157,8 @@ Tri-state boolean meaning:
 - `normalized_transactions`: non-excluded `WITHDRAWAL` rows sorted by `occurred_at` and `transaction_id`
 - `included_count`
 - `excluded_count`
+- `requested_period_days`
+- `observed_period_days`
 - `data_quality_score`
 - `analysis_eligible`
 - `result_status_candidate`: `STANDARD`, `PROVISIONAL`, or `INSUFFICIENT_DATA`
@@ -164,3 +166,5 @@ Tri-state boolean meaning:
 - `limitations`
 
 `DEPOSIT`, `REFUND`, `TRANSFER`, `ADJUSTMENT`, and source-excluded rows are returned as excluded audit entries and are not included in ordinary spending denominators.
+
+`INSUFFICIENT_DATA` means analysis must not invoke rule-engine or LLM judgment. It is used for no analyzable withdrawals, fewer than 10 normalized withdrawals, or fewer than 14 observed transaction days. `PROVISIONAL` means analysis is eligible but limited by coverage or synthetic data.

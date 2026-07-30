@@ -33,6 +33,7 @@ def build_transaction(
     is_shared_expense: bool | None = None,
     is_planned: bool | None = None,
     is_recurring: bool | None = None,
+    source_type: AnalysisSourceType | None = None,
 ) -> AnalysisTransactionInput:
     return AnalysisTransactionInput(
         transaction_id=f"txn-{index:03d}",
@@ -47,7 +48,7 @@ def build_transaction(
         is_shared_expense=is_shared_expense,
         is_planned=is_planned,
         is_recurring=is_recurring,
-        source_type=None,
+        source_type=source_type,
         is_excluded=is_excluded,
     )
 
@@ -110,7 +111,14 @@ def test_preprocessing_includes_only_non_excluded_withdrawals_and_preserves_tri_
 
 
 def test_quality_report_marks_standard_when_data_is_sufficient() -> None:
-    transactions = tuple(build_transaction(index) for index in range(1, 11))
+    transactions = tuple(
+        build_transaction(
+            index,
+            occurred_at=datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
+            + timedelta(days=(index - 1) * 2),
+        )
+        for index in range(1, 11)
+    )
 
     result = preprocess_analysis_input(build_input(transactions))
 
@@ -118,15 +126,23 @@ def test_quality_report_marks_standard_when_data_is_sufficient() -> None:
     assert result.analysis_eligible is True
     assert result.result_status_candidate == ResultStatus.STANDARD
     assert result.provisional_reasons == ()
+    assert result.data_quality_report.requested_period_days == 31
+    assert result.data_quality_report.observed_period_days == 19
+    assert result.data_quality_report.analysis_period_days == 19
     assert result.data_quality_report.category_coverage == 1.0
     assert result.data_quality_report.merchant_coverage == 1.0
     assert result.data_quality_score == 1.0
 
 
-def test_quality_report_marks_provisional_reasons_for_sparse_low_coverage_synthetic_data() -> None:
+def test_sparse_transactions_are_insufficient_not_provisional() -> None:
     transactions = (
         build_transaction(1, category_code=None, behavior_group=None, merchant_key=None),
-        build_transaction(2, category_code="food", merchant_key=None),
+        build_transaction(
+            2,
+            category_code="food",
+            merchant_key=None,
+            occurred_at=datetime(2026, 7, 3, tzinfo=UTC),
+        ),
     )
     result = preprocess_analysis_input(
         build_input(
@@ -139,7 +155,7 @@ def test_quality_report_marks_provisional_reasons_for_sparse_low_coverage_synthe
     )
 
     assert result.analysis_eligible is False
-    assert result.result_status_candidate == ResultStatus.PROVISIONAL
+    assert result.result_status_candidate == ResultStatus.INSUFFICIENT_DATA
     assert result.provisional_reasons == (
         ProvisionalReason.INSUFFICIENT_TRANSACTION_COUNT,
         ProvisionalReason.INSUFFICIENT_ANALYSIS_PERIOD,
@@ -149,6 +165,49 @@ def test_quality_report_marks_provisional_reasons_for_sparse_low_coverage_synthe
     )
     assert result.data_quality_report.category_coverage == 0.5
     assert result.data_quality_report.merchant_coverage == 0.0
+
+
+def test_quality_report_marks_provisional_when_eligible_with_low_coverage_synthetic_data() -> None:
+    transactions = tuple(
+        build_transaction(
+            index,
+            category_code="food" if index <= 6 else None,
+            merchant_key=None,
+            occurred_at=datetime(2026, 7, 1, 12, 0, tzinfo=UTC)
+            + timedelta(days=(index - 1) * 2),
+        )
+        for index in range(1, 11)
+    )
+    result = preprocess_analysis_input(
+        build_input(
+            transactions,
+            source_type=AnalysisSourceType.MOCK,
+            is_synthetic=True,
+        )
+    )
+
+    assert result.analysis_eligible is True
+    assert result.result_status_candidate == ResultStatus.PROVISIONAL
+    assert result.provisional_reasons == (
+        ProvisionalReason.LOW_CATEGORY_COVERAGE,
+        ProvisionalReason.LOW_MERCHANT_COVERAGE,
+        ProvisionalReason.SYNTHETIC_DATA,
+    )
+    assert result.data_quality_report.category_coverage == 0.6
+    assert result.data_quality_report.merchant_coverage == 0.0
+
+
+def test_requested_period_does_not_make_short_observed_span_eligible() -> None:
+    transactions = tuple(build_transaction(index) for index in range(1, 11))
+
+    result = preprocess_analysis_input(build_input(transactions))
+
+    assert result.included_count == 10
+    assert result.data_quality_report.requested_period_days == 31
+    assert result.data_quality_report.observed_period_days == 1
+    assert result.analysis_eligible is False
+    assert result.result_status_candidate == ResultStatus.INSUFFICIENT_DATA
+    assert ProvisionalReason.INSUFFICIENT_ANALYSIS_PERIOD in result.provisional_reasons
 
 
 def test_no_analyzable_withdrawals_returns_insufficient_data_without_rule_or_llm_request() -> None:
@@ -186,4 +245,21 @@ def test_preprocessing_rejects_invalid_contract_inputs() -> None:
                 source_type=AnalysisSourceType.MOCK,
                 is_synthetic=False,
             )
+        )
+
+    with pytest.raises(AnalysisInputError):
+        preprocess_analysis_input(
+            build_input(
+                (
+                    build_transaction(
+                        1,
+                        occurred_at=datetime(2026, 6, 30, 23, 59, tzinfo=UTC),
+                    ),
+                )
+            )
+        )
+
+    with pytest.raises(AnalysisInputError):
+        preprocess_analysis_input(
+            build_input((build_transaction(1, source_type=AnalysisSourceType.MOCK),))
         )

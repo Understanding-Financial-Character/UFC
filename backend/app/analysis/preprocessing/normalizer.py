@@ -90,11 +90,18 @@ def validate_analysis_input(analysis_input: AnalysisInput) -> None:
     ):
         if value.tzinfo is None or value.utcoffset() is None:
             raise AnalysisInputError(f"{field} must include timezone information.")
+    period_start = normalize_datetime(analysis_input.analysis_period.started_at)
+    period_end = normalize_datetime(analysis_input.analysis_period.ended_at)
     for transaction in analysis_input.transactions:
         if transaction.group_id != analysis_input.group_id:
             raise AnalysisInputError("Transaction group_id must match analysis group_id.")
         if transaction.occurred_at.tzinfo is None or transaction.occurred_at.utcoffset() is None:
             raise AnalysisInputError("Transaction occurred_at must include timezone information.")
+        if transaction.source_type is not None and transaction.source_type != analysis_input.source_type:
+            raise AnalysisInputError("Transaction source_type must match analysis source_type.")
+        transaction_time = normalize_datetime(transaction.occurred_at)
+        if not period_start <= transaction_time <= period_end:
+            raise AnalysisInputError("Transaction occurred_at must fall within analysis_period.")
         if transaction.amount <= 0:
             raise AnalysisInputError("Transaction amount must be positive.")
 

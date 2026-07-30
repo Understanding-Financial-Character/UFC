@@ -134,6 +134,8 @@ class CoverageReport:
 class DataQualityReport:
     included_count: int
     excluded_count: int
+    requested_period_days: int
+    observed_period_days: int
     analysis_period_days: int
     category_coverage: float
     merchant_coverage: float

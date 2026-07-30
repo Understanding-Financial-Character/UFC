@@ -41,7 +41,15 @@ AN Phase 1 uses these deterministic thresholds:
 
 Coverage is calculated over normalized, non-excluded `WITHDRAWAL` rows only.
 
-`analysis_eligible` is true when at least 10 normalized withdrawals exist across an observation window of at least 14 days. Low category or merchant coverage keeps the run provisional but does not by itself block preprocessing output.
+`analysis_eligible` is true when at least 10 normalized withdrawals exist across an observed transaction span of at least 14 days. The observed span is calculated from normalized transaction timestamps, not only from the requested analysis window.
+
+Blocking reasons produce `result_status=INSUFFICIENT_DATA` and must prevent rule-engine or LLM execution:
+
+- `NO_ANALYZABLE_WITHDRAWALS`
+- `INSUFFICIENT_TRANSACTION_COUNT`
+- `INSUFFICIENT_ANALYSIS_PERIOD`
+
+Low category coverage, low merchant coverage, or synthetic data produce `result_status=PROVISIONAL` only when no blocking reason exists.
 
 ## Transaction Type Policy
 
@@ -74,6 +82,13 @@ Analysis-only groupings must be derived into separate fields and versioned by pr
 ## Normalization
 
 - Datetimes must include timezone information and are normalized to UTC.
+- Transactions must fall within the inclusive `analysis_period`.
+- Transaction-level `source_type`, when present, must match the top-level `source_type`; one analysis run uses one source type.
 - `category_code` is stripped and uppercased.
 - `merchant_key` is Unicode-normalized, lowercased, separator-collapsed, and may remain `null` when unavailable.
 - `is_shared_expense`, `is_planned`, and `is_recurring` remain tri-state through preprocessing.
+
+The quality report distinguishes:
+
+- `requested_period_days`: inclusive days in the requested analysis window
+- `observed_period_days`: inclusive days between the first and last normalized withdrawal
