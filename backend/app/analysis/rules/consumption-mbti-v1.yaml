@@ -1,6 +1,11 @@
 {
   "rule_version": "consumption-mbti-v1",
   "schema_version": "consumption-mbti-v1",
+  "requires": {
+    "behavior_feature_schema_version": "behavior-features-v1",
+    "behavior_feature_policy_version": "behavior-policy-v1",
+    "category_mapping_version": "category-map-v2"
+  },
   "min_decision_coverage": 0.5,
   "standard_coverage": 0.7,
   "low_margin_threshold": 5.0,

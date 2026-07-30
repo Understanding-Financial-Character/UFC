@@ -1,7 +1,7 @@
 # AN Phase 3 - Consumption MBTI Rule Engine Verification
 
 ## Verified Commit
-`e88bbb1`
+Pending review-fix commit.
 ## Verified At
 2026-07-30
 ## Environment
@@ -18,8 +18,8 @@ Docker Compose dev backend on PostgreSQL 16.
 ## Results
 - Compose config: passed.
 - Alembic upgrade head: passed.
-- AN Phase 3 golden tests: 9 passed.
-- Full backend tests: 111 passed, 1 upstream deprecation warning from FastAPI/Starlette TestClient.
+- AN Phase 3 rule-engine tests: 21 passed.
+- Full backend tests: 123 passed, 1 upstream deprecation warning from FastAPI/Starlette TestClient.
 - Ruff: passed.
 - Diff whitespace check: passed.
 - CI-style committed diff whitespace check: passed.
@@ -29,6 +29,7 @@ Not applicable.
 No schema change in AN Phase 3. Existing migration chain applies cleanly to head.
 ## Security Evidence
 - Rule engine consumes `BehaviorMetricsResult` dataclasses only.
+- Synthetic/mock provenance is read from `BehaviorMetricsResult.source_type` and `is_synthetic`.
 - Analysis rule code does not import SQLAlchemy, FastAPI routers, or database sessions.
 - Rule engine does not call Qwen3 and does not pass raw transactions or sensitive identifiers to AI.
 ## Known Limitations

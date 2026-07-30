@@ -33,11 +33,14 @@ Behavior feature output is implemented by AN Phase 2. `consumption-mbti-v1` is i
   ],
   "policyVersion": "behavior-policy-v1",
   "categoryMappingVersion": "category-map-v2",
-  "analysisTimezone": "Asia/Seoul"
+  "analysisTimezone": "Asia/Seoul",
+  "sourceType": "CSV",
+  "isSynthetic": false
 }
 ```
 
 Behavior features include calculation evidence and minimum-data handling. Missing inputs produce `status=UNAVAILABLE` with `rawValue=null` and `normalizedScore=null`, not zero.
+`sourceType` and `isSynthetic` are preserved on the behavior metrics result so the rule engine can mark mock or generated data as provisional without relying on an optional caller flag.
 
 Feature units:
 
@@ -126,6 +129,10 @@ Axis scoring uses only available features and renormalizes remaining weights.
       "featureScore": 0.8,
       "contributionScore": 0.8,
       "contribution": 0.2667,
+      "highPoleSupport": 0.8,
+      "lowPoleSupport": 0.2,
+      "signedContribution": 0.2,
+      "decidedPoleContribution": 0.2667,
       "evidence": ["Category diversity score 0.8000 from 4 category amount buckets."]
     }
   ]
@@ -142,9 +149,11 @@ Rule-engine behavior:
 - Axis coverage is the configured available weight divided by total configured axis weight.
 - Coverage below `0.50` defers that axis and prevents final `mbtiType` generation.
 - Coverage from `0.50` to below `0.70` keeps the axis decision but marks the result provisional.
-- Margin below `5.0` points adds `LOW_AXIS_SCORE_MARGIN`.
+- Exact score ties at `0.50` defer the axis, add `AXIS_SCORE_TIE`, and prevent final `mbtiType` generation.
+- Non-zero margin below `5.0` points keeps the axis decision but adds `LOW_AXIS_SCORE_MARGIN`.
 - Mock or generated data adds `SYNTHETIC_DATA`.
-- Primary evidence is axis-specific, so the same feature can contribute separately to multiple axes.
+- Primary evidence is axis-specific, limited to the top contributing features per axis, so the same feature can contribute separately to multiple axes. Full contribution traces remain available on each axis result.
+- Feature contributions expose high-pole support, low-pole support, signed contribution, and decided-pole contribution so low-pole decisions retain meaningful evidence.
 
 `resultStatus` values:
 

@@ -93,6 +93,11 @@ class BehaviorFeatureStatus(str, enum.Enum):
     UNAVAILABLE = "UNAVAILABLE"
 
 
+class RuleDirection(str, enum.Enum):
+    HIGH = "HIGH"
+    LOW = "LOW"
+
+
 class ConsumptionAxis(str, enum.Enum):
     EI = "EI"
     SN = "SN"
@@ -231,6 +236,8 @@ class BehaviorMetricsInput:
     observation_started_at: datetime
     observation_ended_at: datetime
     timezone: str = "Asia/Seoul"
+    source_type: AnalysisSourceType = AnalysisSourceType.CSV
+    is_synthetic: bool = False
 
 
 @dataclass(frozen=True)
@@ -239,6 +246,8 @@ class BehaviorMetricsResult:
     policy_version: str
     category_mapping_version: str
     analysis_timezone: str
+    source_type: AnalysisSourceType
+    is_synthetic: bool
     features: tuple[BehaviorFeatureResult, ...]
 
 
@@ -252,12 +261,16 @@ class RuleEngineInput:
 class AxisContribution:
     axis: ConsumptionAxis
     feature_code: BehaviorFeatureCode
-    direction: str
+    direction: RuleDirection
     weight: float
     normalized_weight: float
     feature_score: float
     contribution_score: float
     contribution: float
+    high_pole_support: float
+    low_pole_support: float
+    signed_contribution: float
+    decided_pole_contribution: float
     evidence: tuple[str, ...]
 
 

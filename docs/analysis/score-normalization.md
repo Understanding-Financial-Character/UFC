@@ -49,4 +49,4 @@ Axis margin is measured in points from the midpoint:
 margin = abs(axis_score - 0.5) * 100
 ```
 
-Margins below `5.0` points add `LOW_AXIS_SCORE_MARGIN`.
+Exact midpoint ties at `0.50` defer the axis with `AXIS_SCORE_TIE`. Non-zero margins below `5.0` points keep the axis decision but add `LOW_AXIS_SCORE_MARGIN`.

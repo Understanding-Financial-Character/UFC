@@ -12,6 +12,7 @@ from app.analysis.contracts import (
     BEHAVIOR_FEATURE_POLICY_VERSION,
     BEHAVIOR_FEATURE_SCHEMA_VERSION,
     CATEGORY_MAPPING_VERSION,
+    AnalysisSourceType,
     AnalysisTransactionType,
     BehaviorFeatureCode,
     BehaviorFeatureResult,
@@ -153,6 +154,8 @@ def calculate_behavior_metrics(
         policy_version=BEHAVIOR_FEATURE_POLICY_VERSION,
         category_mapping_version=CATEGORY_MAPPING_VERSION,
         analysis_timezone=context.timezone,
+        source_type=context.source_type,
+        is_synthetic=context.is_synthetic,
         features=features,
     )
 
@@ -169,12 +172,32 @@ def coerce_metrics_input(
     else:
         started_at = datetime(1970, 1, 1, tzinfo=UTC)
         ended_at = started_at
+    source_type = infer_source_type(transactions)
     return BehaviorMetricsInput(
         transactions=transactions,
         observation_started_at=started_at,
         observation_ended_at=ended_at,
         timezone=MVP_ANALYSIS_TIMEZONE,
+        source_type=source_type,
+        is_synthetic=is_synthetic_source(source_type),
     )
+
+
+def infer_source_type(transactions: tuple[NormalizedTransaction, ...]) -> AnalysisSourceType:
+    if not transactions:
+        return AnalysisSourceType.CSV
+    source_types = {transaction.source_type for transaction in transactions}
+    if len(source_types) == 1:
+        return next(iter(source_types))
+    if AnalysisSourceType.MOCK in source_types:
+        return AnalysisSourceType.MOCK
+    if AnalysisSourceType.INTERNAL_TEST in source_types:
+        return AnalysisSourceType.INTERNAL_TEST
+    return AnalysisSourceType.CSV
+
+
+def is_synthetic_source(source_type: AnalysisSourceType) -> bool:
+    return source_type in {AnalysisSourceType.MOCK, AnalysisSourceType.INTERNAL_TEST}
 
 
 def amount_ratio(
