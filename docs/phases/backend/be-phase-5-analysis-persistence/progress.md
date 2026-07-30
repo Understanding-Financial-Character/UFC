@@ -30,6 +30,7 @@ Analysis output persistence contract updated with behavior feature core fields, 
 Not assigned.
 ## Commits
 - `96758c0` feat: add analysis persistence schema
+- `c4d6ee4` fix: align analysis persistence contracts
 ## Blockers
 None.
 ## Handover Notes

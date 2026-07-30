@@ -2,6 +2,8 @@
 
 ## Verified Commit
 `96758c0` feat: add analysis persistence schema
+
+`c4d6ee4` fix: align analysis persistence contracts
 ## Verified At
 2026-07-30 12:19:08 KST
 ## Environment
