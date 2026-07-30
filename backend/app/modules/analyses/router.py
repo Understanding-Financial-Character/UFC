@@ -89,6 +89,24 @@ def retry_analysis(
     return build_analysis_response(result.analysis_run)
 
 
+@router.post(
+    "/analyses/{analysis_id}/report/retry",
+    response_model=AnalysisResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def retry_analysis_report(
+    analysis_id: str,
+    db: DatabaseSession,
+    principal: AuthenticatedPrincipal,
+) -> AnalysisResponse:
+    result = analysis_service.retry_analysis_report(
+        db,
+        analysis_run_id=analysis_id,
+        owner_user_id=principal.user_id,
+    )
+    return build_analysis_response(result.analysis_run)
+
+
 def build_analysis_response(analysis_run: AnalysisRun) -> AnalysisResponse:
     return AnalysisResponse(
         analysis_id=analysis_run.id,

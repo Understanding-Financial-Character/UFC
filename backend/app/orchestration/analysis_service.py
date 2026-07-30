@@ -283,6 +283,12 @@ def retry_analysis(
         )
     group = get_owned_group_for_update(db, analysis_run.group_id, owner_user_id)
     prevent_concurrent_analysis(db, group.id)
+    if not has_valid_analysis_snapshot(analysis_run.analysis_input_snapshot):
+        raise ApiException(
+            code="ANALYSIS_SNAPSHOT_UNAVAILABLE",
+            message="This analysis was created before input snapshots were supported and cannot be retried.",
+            status_code=409,
+        )
     analysis_input = analysis_input_from_snapshot(analysis_run.analysis_input_snapshot)
     repository = AnalysisResultRepository(db)
     retry_run = repository.create_analysis_run(
@@ -308,6 +314,67 @@ def retry_analysis(
         analysis_input=analysis_input,
         source_type=analysis_run.source_type,
         report_service=report_service,
+    )
+
+
+def retry_analysis_report(
+    db: Session,
+    *,
+    analysis_run_id: str,
+    owner_user_id: str,
+    report_service: GroundedReportService | None = None,
+) -> AnalysisExecutionResult:
+    analysis_run = require_owned_analysis_run(db, analysis_run_id, owner_user_id)
+    if (
+        analysis_run.status != AnalysisRunStatus.PARTIALLY_COMPLETED
+        or analysis_run.ai_report is None
+        or analysis_run.ai_report.status != AIReportStatus.FAILED
+        or analysis_run.consumption_mbti_result is None
+        or not analysis_run.behavior_metrics
+    ):
+        raise ApiException(
+            code="ANALYSIS_REPORT_RETRY_NOT_ALLOWED",
+            message="Only analyses with failed AI reports and saved deterministic results can retry the report.",
+            status_code=409,
+        )
+    if analysis_run.result_status is None:
+        raise ApiException(
+            code="ANALYSIS_REPORT_RETRY_NOT_ALLOWED",
+            message="Analysis result status is required before retrying the report.",
+            status_code=409,
+        )
+    result_status = analysis_run.result_status
+    provisional_reasons = tuple(analysis_run.provisional_reasons)
+    report_input = grounded_report_input_from_persisted_result(
+        analysis_run=analysis_run,
+        consumption_result=analysis_run.consumption_mbti_result,
+    )
+
+    repository = AnalysisResultRepository(db)
+    repository.update_analysis_run_status(analysis_run.id, status=AnalysisRunStatus.REPORT_GENERATING)
+    db.commit()
+
+    ai_report = regenerate_saved_report(
+        db=db,
+        repository=repository,
+        analysis_run=analysis_run,
+        report_input=report_input,
+        report_service=report_service,
+    )
+    final_status = final_analysis_status(ai_report)
+    repository.complete_analysis_run(
+        analysis_run.id,
+        result_status=result_status,
+        provisional_reasons=provisional_reasons,
+        status=final_status,
+    )
+    db.commit()
+    refreshed = refresh_analysis_run(db, analysis_run.id)
+    return AnalysisExecutionResult(
+        analysis_run=refreshed,
+        behavior_metrics=tuple(refreshed.behavior_metrics),
+        consumption_mbti_result=refreshed.consumption_mbti_result,
+        ai_report=refreshed.ai_report,
     )
 
 
@@ -575,6 +642,28 @@ def analysis_input_from_snapshot(snapshot: dict[str, Any]) -> AnalysisInput:
     )
 
 
+def has_valid_analysis_snapshot(snapshot: dict[str, Any]) -> bool:
+    if not snapshot:
+        return False
+    required_keys = {
+        "schemaVersion",
+        "analysisId",
+        "groupId",
+        "groupPurposeType",
+        "analysisPeriod",
+        "sourceType",
+        "isSynthetic",
+        "members",
+        "transactions",
+    }
+    if not required_keys.issubset(snapshot):
+        return False
+    period = snapshot.get("analysisPeriod")
+    if not isinstance(period, dict) or not {"startedAt", "endedAt"}.issubset(period):
+        return False
+    return isinstance(snapshot.get("members"), list) and isinstance(snapshot.get("transactions"), list)
+
+
 def calculate_snapshot_hash(snapshot: dict[str, Any]) -> str:
     encoded = json.dumps(snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
@@ -755,6 +844,117 @@ def generate_and_save_report(
         )
         db.commit()
         return refresh_analysis_run(db, analysis_run.id).ai_report
+
+
+def regenerate_saved_report(
+    *,
+    db: Session,
+    repository: AnalysisResultRepository,
+    analysis_run: AnalysisRun,
+    report_input: GroundedReportInput,
+    report_service: GroundedReportService | None,
+) -> AIReport | None:
+    service = report_service or GroundedReportService(generator=build_report_generator(settings))
+    existing_report = analysis_run.ai_report
+    consumption_result = analysis_run.consumption_mbti_result
+    if existing_report is None or consumption_result is None:
+        raise RuntimeError("report retry requires saved deterministic analysis and failed AI report.")
+    try:
+        report_result = service.generate(report_input)
+        return repository.update_ai_report(
+            existing_report,
+            status=(
+                AIReportStatus.FALLBACK_COMPLETED
+                if report_result.metadata.fallback_used
+                else AIReportStatus.COMPLETED
+            ),
+            report_content=report_result.report.model_dump(),
+            model_name=report_result.metadata.model,
+            prompt_version=report_result.metadata.prompt_version,
+            latency_ms=report_result.metadata.latency_ms,
+            fallback_used=report_result.metadata.fallback_used,
+            fallback_reason=report_result.metadata.fallback_reason,
+            repair_attempted=report_result.metadata.repair_attempted,
+            validation_result=report_result.metadata.validation,
+            failure_reason=None,
+            schema_version=AI_REPORT_SCHEMA_VERSION,
+        )
+    except Exception as exc:  # noqa: BLE001 - keep report-only retry failures isolated.
+        db.rollback()
+        repository.update_ai_report(
+            existing_report,
+            status=AIReportStatus.FAILED,
+            report_content=None,
+            model_name=None,
+            prompt_version=PROMPT_VERSION,
+            latency_ms=None,
+            fallback_used=False,
+            fallback_reason=None,
+            repair_attempted=False,
+            validation_result={},
+            failure_reason=type(exc).__name__,
+            schema_version=AI_REPORT_SCHEMA_VERSION,
+        )
+        repository.complete_analysis_run(
+            analysis_run.id,
+            result_status=report_input_status(report_input),
+            provisional_reasons=analysis_run.provisional_reasons,
+            status=AnalysisRunStatus.PARTIALLY_COMPLETED,
+        )
+        db.commit()
+        return refresh_analysis_run(db, analysis_run.id).ai_report
+
+
+def grounded_report_input_from_persisted_result(
+    *,
+    analysis_run: AnalysisRun,
+    consumption_result: ConsumptionMBTIResult,
+) -> GroundedReportInput:
+    if analysis_run.result_status is None:
+        raise RuntimeError("analysis result status is required.")
+    return GroundedReportInput(
+        spending_mbti=consumption_result.mbti_type.value if consumption_result.mbti_type else None,
+        axis_scores={
+            axis: float(score)
+            for axis, score in {
+                "EI": consumption_result.ei_score,
+                "SN": consumption_result.sn_score,
+                "TF": consumption_result.tf_score,
+                "JP": consumption_result.jp_score,
+            }.items()
+            if score is not None
+        },
+        confidence={
+            "level": consumption_result.confidence_level,
+            "score": (
+                float(consumption_result.confidence_score)
+                if consumption_result.confidence_score is not None
+                else None
+            ),
+        },
+        evidence=tuple(
+            persisted_evidence_item(item)
+            for item in consumption_result.result_metadata.get("primaryEvidence", [])
+        ),
+        member_mbti_summary=member_mbti_summary(analysis_run.group.members),
+        limitations=tuple(consumption_result.limitations),
+        result_status=analysis_run.result_status.value,
+    )
+
+
+def persisted_evidence_item(item: dict[str, Any]) -> EvidenceItem:
+    basis_values = item.get("evidence") or ()
+    basis = basis_values[0] if basis_values else str(item.get("featureCode", "UNKNOWN_FEATURE"))
+    return EvidenceItem(
+        metric=str(item.get("featureCode", "UNKNOWN_FEATURE")),
+        value=item.get("decidedPoleContribution"),
+        basis=basis,
+        value_type=EvidenceValueType.SCORE,
+    )
+
+
+def report_input_status(report_input: GroundedReportInput) -> ResultStatus:
+    return ResultStatus(report_input.result_status)
 
 
 def final_analysis_status(ai_report: AIReport | None) -> AnalysisRunStatus:

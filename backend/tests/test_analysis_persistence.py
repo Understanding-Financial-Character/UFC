@@ -18,6 +18,7 @@ from app.analysis.contracts import (
     ProvisionalReason,
     ResultStatus,
 )
+from app.core.exceptions import ApiException
 from app.db.base import Base
 from app.modules.analysis_results.models import (
     AIReport,
@@ -507,6 +508,36 @@ def test_retry_failed_run_reuses_persisted_snapshot(db: Session) -> None:
     assert result.analysis_run.snapshot_hash == failed_run.snapshot_hash
     assert result.analysis_run.analysis_input_snapshot == snapshot
     assert result.analysis_run.result_status == ResultStatus.INSUFFICIENT_DATA
+
+
+def test_legacy_failed_analysis_without_snapshot_returns_409(db: Session) -> None:
+    group = seed_group(db)
+    legacy_run = AnalysisRun(
+        group_id=group.id,
+        status=AnalysisRunStatus.FAILED,
+        result_status=None,
+        provisional_reasons=[],
+        analysis_period_started_at=datetime(2026, 7, 1, tzinfo=UTC),
+        analysis_period_ended_at=datetime(2026, 7, 31, tzinfo=UTC),
+        source_type=AnalysisSourceType.CSV,
+        is_synthetic=False,
+        input_schema_version="analysis-input-v1",
+        analysis_version="analysis-persistence-test-v1",
+        snapshot_hash=SNAPSHOT_HASH,
+        analysis_input_snapshot={},
+    )
+    db.add(legacy_run)
+    db.commit()
+
+    with pytest.raises(ApiException) as exc_info:
+        analysis_service.retry_analysis(
+            db,
+            analysis_run_id=legacy_run.id,
+            owner_user_id=group.owner_user_id,
+        )
+
+    assert exc_info.value.code == "ANALYSIS_SNAPSHOT_UNAVAILABLE"
+    assert exc_info.value.status_code == 409
 
 
 def test_postgres_analysis_persistence_schema_types() -> None:

@@ -309,6 +309,44 @@ class AnalysisResultRepository:
         self.db.flush()
         return report
 
+    def update_ai_report(
+        self,
+        report: AIReport,
+        *,
+        status: AIReportStatus,
+        report_content: dict[str, Any] | None,
+        model_name: str | None,
+        prompt_version: str | None,
+        latency_ms: int | None,
+        fallback_used: bool,
+        fallback_reason: str | None,
+        repair_attempted: bool,
+        validation_result: dict[str, Any],
+        failure_reason: str | None,
+        schema_version: str,
+    ) -> AIReport:
+        self._validate_nonblank("schema_version", schema_version)
+        self._validate_ai_report_payload(
+            status=status,
+            report_content=report_content,
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            failure_reason=failure_reason,
+        )
+        report.status = status
+        report.report_content = report_content
+        report.model_name = model_name
+        report.prompt_version = prompt_version
+        report.latency_ms = latency_ms
+        report.fallback_used = fallback_used
+        report.fallback_reason = fallback_reason
+        report.repair_attempted = repair_attempted
+        report.validation_result = validation_result
+        report.failure_reason = failure_reason
+        report.schema_version = schema_version
+        self.db.flush()
+        return report
+
     def _require_analysis_run(self, analysis_run_id: str) -> AnalysisRun:
         analysis_run = self.get_analysis_run(analysis_run_id)
         if analysis_run is None:

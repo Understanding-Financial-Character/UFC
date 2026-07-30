@@ -47,6 +47,11 @@ class CountingReportGenerator(JsonReportGenerator):
         return super().generate(request)
 
 
+class RuntimeFailingReportGenerator:
+    def generate(self, request: ReportGenerationRequest) -> ReportGenerationResult:
+        raise RuntimeError("temporary provider failure")
+
+
 def patch_report_generator(monkeypatch) -> None:
     monkeypatch.setattr(
         analysis_service,
@@ -310,3 +315,43 @@ def test_analysis_period_uses_kst_calendar_boundaries() -> None:
     assert response.status_code == 202
     metadata = response.json()["consumption_mbti_result"]["metadata"]
     assert metadata["dataQuality"]["included_count"] == 2
+
+
+def test_failed_ai_report_can_be_retried_without_recomputing_analysis(monkeypatch) -> None:
+    client = build_sqlite_client()
+    user, group = setup_ready_group_with_transactions(client)
+    monkeypatch.setattr(
+        analysis_service,
+        "build_report_generator",
+        lambda _settings: RuntimeFailingReportGenerator(),
+    )
+
+    first_response = client.post(
+        f"/api/v1/groups/{group['group_id']}/analyses",
+        headers=auth_headers(user),
+        json={"period_start": "2026-07-01", "period_end": "2026-07-15"},
+    )
+    assert first_response.status_code == 202
+    first_body = first_response.json()
+    assert first_body["status"] == "PARTIALLY_COMPLETED"
+    assert first_body["ai_report"]["status"] == "FAILED"
+    behavior_metric_count = len(first_body["behavior_metrics"])
+    consumption_result = first_body["consumption_mbti_result"]
+
+    monkeypatch.setattr(
+        analysis_service,
+        "build_report_generator",
+        lambda _settings: JsonReportGenerator(),
+    )
+    retry_response = client.post(
+        f"/api/v1/analyses/{first_body['analysis_id']}/report/retry",
+        headers=auth_headers(user),
+    )
+
+    assert retry_response.status_code == 202
+    retry_body = retry_response.json()
+    assert retry_body["analysis_id"] == first_body["analysis_id"]
+    assert retry_body["status"] == "COMPLETED"
+    assert retry_body["ai_report"]["status"] == "COMPLETED"
+    assert len(retry_body["behavior_metrics"]) == behavior_metric_count
+    assert retry_body["consumption_mbti_result"] == consumption_result

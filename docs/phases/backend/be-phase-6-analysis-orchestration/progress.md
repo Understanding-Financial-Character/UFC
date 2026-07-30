@@ -17,21 +17,26 @@ IMPLEMENTED
 - `INSUFFICIENT_DATA` runs skip AI report generation and preserve deterministic outputs only.
 - Analysis periods use the canonical `Asia/Seoul` calendar boundary before UTC persistence/querying.
 - Failed run retry is limited to `FAILED` analyses and reuses the original persisted analysis input snapshot.
+- AI report-only retry is available for `PARTIALLY_COMPLETED` runs with failed report rows, without recalculating deterministic outputs.
+- Legacy failed runs without valid snapshots return `ANALYSIS_SNAPSHOT_UNAVAILABLE` instead of leaking a server error.
 - API response DTOs that do not expose SQLAlchemy entities or raw transaction arrays.
 ## Remaining
 Frontend polling integration remains a later frontend phase.
 ## Contract Changes
 - `api-contracts.md` documents Phase 6 analysis create/get/latest/retry endpoints.
-- `analysis-output-contract.md` documents Phase 6 terminal analysis statuses, input snapshot persistence, and AI skip behavior for insufficient data.
+- `api-contracts.md` documents report-only retry.
+- `analysis-output-contract.md` documents Phase 6 terminal analysis statuses, input snapshot persistence, AI skip behavior for insufficient data, and report retry behavior.
 - `data-model.md` documents extended `analysis_runs.status` values, `analysis_input_snapshot`, and `retried_from_analysis_id`.
 ## Migration Changes
 `20260730_0006_analysis_orchestration.py` extends `analysis_run_status`, adds `analysis_input_snapshot` and `retried_from_analysis_id`, and updates the lifecycle check constraint.
 ## Linked PR
-Not assigned.
+- PR: #19
+- Branch: `feat/be-phase-6-analysis-orchestration`
 ## Commits
-`d25b552`
-
-Pending final review-fix commit.
+- Initial implementation: `d25b552`
+- Review fixes verified: `a9bf962`
+- Verification record: `c3afd61`
+- Pending report-retry review fix commit.
 ## Blockers
 None.
 ## Handover Notes

@@ -795,6 +795,17 @@ Response: same as Get Analysis.
 
 Retry is allowed only for `FAILED` runs. It creates a new analysis run linked to the original run and reuses the original persisted analysis input snapshot instead of reading the latest transactions again.
 
+### Retry AI Report
+
+- Method and path: `POST /analyses/{analysisId}/report/retry`
+- Sync or async: Synchronous report regeneration for MVP
+- Idempotency: Not required
+- Resource owner: Group owner
+- Success status: `202 Accepted`
+- Error codes: `AUTHENTICATION_REQUIRED`, `NOT_FOUND`, `ANALYSIS_REPORT_RETRY_NOT_ALLOWED`, `INTERNAL_ERROR`
+
+Retry AI Report is allowed only when the analysis run is `PARTIALLY_COMPLETED`, the existing AI report row is `FAILED`, and deterministic behavior metrics plus consumption MBTI results already exist. It does not create a new analysis run and does not re-read transactions, preprocess input, recalculate behavior metrics, or rerun the rule engine.
+
 ### Get AI Report
 
 - Method and path: `GET /analyses/{analysisId}/report`

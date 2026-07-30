@@ -32,7 +32,7 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.modules.groups.models import Group
 
-JSON_DOCUMENT = JSON().with_variant(JSONB(), "postgresql")
+JSON_DOCUMENT = JSON(none_as_null=True).with_variant(JSONB(none_as_null=True), "postgresql")
 
 
 def utc_now() -> datetime:
