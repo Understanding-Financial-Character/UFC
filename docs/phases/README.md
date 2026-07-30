@@ -72,7 +72,7 @@ Status transition rules:
 | BE Phase 2 - Group Member Domain | COMPLETED | #4 |
 | BE Phase 3 - Security Baseline | COMPLETED | #5 |
 | BE Phase 4 - Transaction Input | NOT_STARTED | Not assigned |
-| BE Phase 5 - Analysis Persistence | NOT_STARTED | Not assigned |
+| BE Phase 5 - Analysis Persistence | VERIFYING | Not assigned |
 | BE Phase 6 - Analysis Orchestration | NOT_STARTED | Not assigned |
 | BE Phase 7 - Admin Audit | NOT_STARTED | Not assigned |
 

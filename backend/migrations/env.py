@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
 from app.db.base import Base
+from app.modules.analysis_results import models as analysis_result_models  # noqa: F401
 from app.modules.auth import models as auth_models  # noqa: F401
 from app.modules.groups import models as group_models  # noqa: F401
 from app.modules.transactions import models as transaction_models  # noqa: F401
