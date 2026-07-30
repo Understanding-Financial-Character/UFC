@@ -1,6 +1,6 @@
 :root {
   color: #172033;
-  background: #f4f6f8;
+  background: #FEFEFE;
   font-family:
     Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
@@ -25,8 +25,8 @@ button,
   min-height: 44px;
   border: 0;
   border-radius: 6px;
-  background: #25636f;
-  color: #ffffff;
+  background: #0773BF;
+  color: #FEFEFE;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -53,15 +53,15 @@ button:disabled {
 
 .auth-panel {
   width: min(100%, 420px);
-  background: #ffffff;
-  border: 1px solid #dbe2ea;
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 16%);
   border-radius: 8px;
   padding: 32px;
   box-shadow: 0 16px 44px rgb(23 32 51 / 10%);
 }
 
 .eyebrow {
-  color: #7a3f29;
+  color: #C0251C;
   font-size: 0.8rem;
   font-weight: 700;
   margin: 0 0 8px;
@@ -89,7 +89,7 @@ p {
 }
 
 .auth-form input {
-  border: 1px solid #c9d4df;
+  border: 1px solid rgb(7 115 191 / 24%);
   border-radius: 6px;
   color: #172033;
   min-height: 44px;
@@ -102,16 +102,16 @@ p {
 }
 
 .auth-link a {
-  color: #25636f;
+  color: #0773BF;
   font-weight: 700;
 }
 
 .login-page {
   align-items: center;
   background:
-    radial-gradient(circle at 16% 12%, rgb(8 114 189 / 6%), transparent 32%),
-    radial-gradient(circle at 82% 82%, rgb(239 181 40 / 7%), transparent 34%),
-    linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    radial-gradient(circle at 16% 12%, rgb(7 115 191 / 6%), transparent 32%),
+    radial-gradient(circle at 82% 82%, rgb(242 186 47 / 7%), transparent 34%),
+    linear-gradient(135deg, #FEFEFE 0%, #FEFEFE 100%);
   color: #1a1c1e;
   display: flex;
   justify-content: center;
@@ -134,9 +134,9 @@ p {
 }
 
 .login-brand-icon {
-  background: #0872bd;
+  background: #0773BF;
   border-radius: 12px;
-  box-shadow: 0 14px 28px rgb(8 114 189 / 18%);
+  box-shadow: 0 14px 28px rgb(7 115 191 / 18%);
   height: 100px;
   margin-bottom: 26px;
   position: relative;
@@ -145,7 +145,7 @@ p {
 
 .login-brand-dot,
 .login-brand-body {
-  background: #ffffff;
+  background: #FEFEFE;
   position: absolute;
 }
 
@@ -196,7 +196,7 @@ p {
 }
 
 .login-brand h1 {
-  color: #005996;
+  color: #0773BF;
   font-size: 2.45rem;
   line-height: 1.15;
   margin: 0;
@@ -211,10 +211,10 @@ p {
 }
 
 .login-card {
-  background: #ffffff;
+  background: #FEFEFE;
   border: 1px solid rgb(192 199 211 / 42%);
   border-radius: 10px;
-  box-shadow: 0 18px 44px rgb(8 114 189 / 9%);
+  box-shadow: 0 18px 44px rgb(7 115 191 / 9%);
   padding: 38px;
 }
 
@@ -245,17 +245,17 @@ p {
 }
 
 .social-login--kakao {
-  background: #f7d54a;
+  background: #F2BA2F;
   color: #231815;
 }
 
 .social-login--naver {
-  background: #03c75a;
-  color: #ffffff;
+  background: #F2BA2F;
+  color: #FEFEFE;
 }
 
 .chat-icon {
-  background: #3c1e1e;
+  background: #C0251C;
   border-radius: 3px;
   display: inline-block;
   height: 26px;
@@ -265,7 +265,7 @@ p {
 
 .chat-icon::after {
   border-right: 8px solid transparent;
-  border-top: 8px solid #3c1e1e;
+  border-top: 8px solid #C0251C;
   bottom: -7px;
   content: "";
   left: 0;
@@ -291,7 +291,7 @@ p {
 
 .login-divider::before,
 .login-divider::after {
-  background: #c0c7d3;
+  background: rgb(7 115 191 / 18%);
   content: "";
   flex: 1;
   height: 1px;
@@ -317,7 +317,7 @@ p {
 }
 
 .login-label-row a {
-  color: #005996;
+  color: #0773BF;
   font-weight: 800;
   text-decoration: none;
 }
@@ -327,8 +327,8 @@ p {
 }
 
 .login-form input {
-  background: #f9f9fc;
-  border: 1px solid #cbd5e1;
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 20%);
   border-radius: 6px;
   color: #1a1c1e;
   font-size: 1.18rem;
@@ -343,15 +343,15 @@ p {
 }
 
 .login-form input:focus {
-  border-color: #0872bd;
-  box-shadow: 0 0 0 4px rgb(8 114 189 / 14%);
+  border-color: #0773BF;
+  box-shadow: 0 0 0 4px rgb(7 115 191 / 14%);
   outline: none;
 }
 
 .login-submit {
-  background: #0872bd;
+  background: #0773BF;
   border-radius: 6px;
-  box-shadow: 0 10px 22px rgb(8 114 189 / 22%);
+  box-shadow: 0 10px 22px rgb(7 115 191 / 22%);
   font-size: 1.35rem;
   font-weight: 800;
   height: 76px;
@@ -368,7 +368,7 @@ p {
 }
 
 .login-signup-link a {
-  color: #005996;
+  color: #0773BF;
   font-weight: 900;
   text-decoration: none;
 }
@@ -394,7 +394,7 @@ p {
 }
 
 .login-status i {
-  background: #efb528;
+  background: #F2BA2F;
   border-radius: 999px;
   display: inline-block;
   height: 13px;
@@ -407,8 +407,8 @@ p {
 }
 
 .login-demo-account {
-  background: #f3f7fb;
-  border: 1px solid #d6e2ee;
+  background: rgb(7 115 191 / 6%);
+  border: 1px solid rgb(7 115 191 / 18%);
   border-radius: 6px;
   color: #404751;
   display: grid;
@@ -423,12 +423,12 @@ p {
 }
 
 .login-demo-account code {
-  color: #005996;
+  color: #0773BF;
   font-weight: 800;
 }
 
 .landing-page {
-  background: #f9f9fc;
+  background: #FEFEFE;
   color: #1a1c1e;
   min-height: 100vh;
   padding: 96px 48px 120px;
@@ -457,7 +457,7 @@ p {
 }
 
 .landing-topbar-brand a {
-  color: #005996;
+  color: #0773BF;
   font-size: 1.35rem;
   font-weight: 900;
   text-decoration: none;
@@ -466,7 +466,7 @@ p {
 .icon-button {
   background: transparent;
   border-radius: 999px;
-  color: #005996;
+  color: #0773BF;
   font-size: 2rem;
   height: 44px;
   min-height: 44px;
@@ -475,7 +475,7 @@ p {
 }
 
 .icon-button:hover {
-  background: #e8e8ea;
+  background: rgb(7 115 191 / 8%);
 }
 
 .landing-nav {
@@ -492,7 +492,7 @@ p {
 
 .landing-nav a:hover,
 .text-link:hover {
-  color: #005996;
+  color: #0773BF;
 }
 
 .landing-session {
@@ -507,7 +507,7 @@ p {
 }
 
 .landing-session button {
-  background: #0872bd;
+  background: #0773BF;
 }
 
 .landing-hero {
@@ -520,9 +520,9 @@ p {
 }
 
 .landing-badge {
-  background: #c8a91d;
+  background: #F2BA2F;
   border-radius: 999px;
-  color: #4c3f00;
+  color: #172033;
   display: inline-block;
   font-size: 0.78rem;
   font-weight: 900;
@@ -537,7 +537,7 @@ p {
 }
 
 .landing-hero strong {
-  color: #005996;
+  color: #0773BF;
 }
 
 .landing-summary-grid {
@@ -547,8 +547,8 @@ p {
 
 .summary-card {
   align-items: center;
-  background: #f3f3f6;
-  border: 1px solid #c0c7d3;
+  background: rgb(7 115 191 / 6%);
+  border: 1px solid rgb(7 115 191 / 18%);
   border-radius: 8px;
   display: grid;
   justify-items: center;
@@ -563,7 +563,7 @@ p {
 }
 
 .summary-card strong {
-  color: #005996;
+  color: #0773BF;
   font-size: 1.35rem;
 }
 
@@ -576,8 +576,8 @@ p {
 }
 
 .meeting-card-ui {
-  background: #ffffff;
-  border: 1px solid #c0c7d3;
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 18%);
   border-radius: 8px;
   box-shadow: 0 4px 20px rgb(0 0 0 / 4%);
   display: flex;
@@ -590,12 +590,12 @@ p {
 }
 
 .meeting-card-ui:hover {
-  box-shadow: 0 14px 30px rgb(8 114 189 / 11%);
+  box-shadow: 0 14px 30px rgb(7 115 191 / 11%);
   transform: translateY(-3px);
 }
 
 .meeting-card-ui--highlighted {
-  border-left: 4px solid #0872bd;
+  border-left: 4px solid #0773BF;
 }
 
 .meeting-card-header,
@@ -619,9 +619,9 @@ p {
 
 .meeting-icon {
   align-items: center;
-  background: #d1e4ff;
+  background: rgb(7 115 191 / 14%);
   border-radius: 999px;
-  color: #00497d;
+  color: #0773BF;
   display: inline-flex;
   flex: 0 0 auto;
   font-weight: 900;
@@ -642,9 +642,9 @@ p {
 }
 
 .mbti-chip {
-  background: #ffdea1;
+  background: #F2BA2F;
   border-radius: 5px;
-  color: #6f5100;
+  color: #172033;
   font-size: 0.75rem;
   font-weight: 900;
   padding: 6px 8px;
@@ -664,25 +664,25 @@ p {
 }
 
 .progress-area strong {
-  color: #005996;
+  color: #0773BF;
 }
 
 .progress-track {
-  background: #e8e8ea;
+  background: rgb(7 115 191 / 8%);
   border-radius: 999px;
   height: 8px;
   overflow: hidden;
 }
 
 .progress-track i {
-  background: #0872bd;
+  background: #0773BF;
   border-radius: inherit;
   display: block;
   height: 100%;
 }
 
 .meeting-card-ui footer {
-  border-top: 1px solid #c0c7d3;
+  border-top: 1px solid rgb(7 115 191 / 18%);
   padding-top: 12px;
 }
 
@@ -698,7 +698,7 @@ p {
 
 .meeting-card-ui footer button {
   background: transparent;
-  color: #005996;
+  color: #0773BF;
   font-size: 1.8rem;
   min-height: 36px;
   padding: 0;
@@ -720,8 +720,8 @@ p {
 }
 
 .insight-panel {
-  background: #eeeef0;
-  border: 1px solid #c0c7d3;
+  background: rgb(7 115 191 / 7%);
+  border: 1px solid rgb(7 115 191 / 18%);
   display: grid;
   gap: 22px;
   grid-template-columns: 1fr auto;
@@ -735,7 +735,7 @@ p {
 }
 
 .section-title span {
-  color: #0872bd;
+  color: #0773BF;
 }
 
 .section-title h2,
@@ -753,9 +753,9 @@ p {
 
 .insight-score {
   align-items: center;
-  border: 4px solid #0872bd;
+  border: 4px solid #0773BF;
   border-radius: 999px;
-  color: #005996;
+  color: #0773BF;
   display: flex;
   font-size: 1.15rem;
   font-weight: 900;
@@ -771,7 +771,7 @@ p {
 }
 
 .analysis-summary h3 {
-  color: #005996;
+  color: #0773BF;
   font-size: 1.25rem;
   margin: 0;
 }
@@ -791,8 +791,8 @@ p {
 }
 
 .axis-grid div {
-  background: #ffffff;
-  border: 1px solid #c0c7d3;
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 18%);
   border-radius: 8px;
   padding: 10px;
 }
@@ -804,7 +804,7 @@ p {
 }
 
 .axis-grid dd {
-  color: #005996;
+  color: #0773BF;
   font-size: 1rem;
   font-weight: 900;
   margin: 2px 0 0;
@@ -821,8 +821,8 @@ p {
 
 .question-line,
 .flow-status {
-  background: #ffffff;
-  border: 1px solid #c0c7d3;
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 18%);
   border-radius: 8px;
   color: #1a1c1e !important;
   font-weight: 800;
@@ -830,36 +830,36 @@ p {
 }
 
 .flow-status--error {
-  border-color: #c4271d;
-  color: #a31710 !important;
+  border-color: #C0251C;
+  color: #C0251C !important;
 }
 
 .mock-panel {
-  background: #0872bd;
-  color: #ffffff;
+  background: #0773BF;
+  color: #FEFEFE;
   display: grid;
   gap: 18px;
 }
 
 .mock-panel p {
-  color: rgb(255 255 255 / 82%);
+  color: rgb(254 254 254 / 82%);
 }
 
 .mock-action {
-  background: #ffffff;
-  color: #005996;
+  background: #FEFEFE;
+  color: #0773BF;
   font-weight: 900;
   min-height: 48px;
 }
 
 .mock-action:disabled {
-  background: rgb(255 255 255 / 64%);
+  background: rgb(254 254 254 / 64%);
   color: #404751;
 }
 
 .demo-login-card {
-  background: rgb(255 255 255 / 12%);
-  border: 1px solid rgb(255 255 255 / 18%);
+  background: rgb(254 254 254 / 12%);
+  border: 1px solid rgb(254 254 254 / 18%);
   border-radius: 8px;
   display: grid;
   gap: 8px;
@@ -871,15 +871,15 @@ p {
 }
 
 .demo-login-card code {
-  background: rgb(255 255 255 / 14%);
+  background: rgb(254 254 254 / 14%);
   border-radius: 5px;
-  color: #ffffff;
+  color: #FEFEFE;
   padding: 6px 8px;
 }
 
 .demo-login-card a,
 .mock-panel a {
-  color: #ffffff;
+  color: #FEFEFE;
   font-weight: 900;
 }
 
@@ -893,11 +893,11 @@ p {
 
 .floating-action {
   align-items: center;
-  background: #c4271d;
+  background: #C0251C;
   border-radius: 999px;
   bottom: 92px;
   box-shadow: 0 18px 36px rgb(196 39 29 / 28%);
-  color: #ffffff;
+  color: #FEFEFE;
   display: flex;
   font-size: 2rem;
   font-weight: 700;
@@ -911,7 +911,7 @@ p {
 }
 
 .mobile-nav {
-  background: #ffffff;
+  background: #FEFEFE;
   border-radius: 16px 16px 0 0;
   bottom: 0;
   box-shadow: 0 -4px 20px rgb(0 0 0 / 6%);
@@ -933,16 +933,16 @@ p {
 }
 
 .mobile-nav a.active {
-  background: #0872bd;
+  background: #0773BF;
   border-radius: 999px;
-  color: #edf3ff;
+  color: #FEFEFE;
 }
 
 .flow-page {
   background:
-    radial-gradient(circle at 80% 0%, rgb(192 193 255 / 34%), transparent 32%),
-    radial-gradient(circle at 8% 80%, rgb(110 248 187 / 24%), transparent 28%),
-    #f8f9ff;
+    radial-gradient(circle at 80% 0%, rgb(7 115 191 / 34%), transparent 32%),
+    radial-gradient(circle at 8% 80%, rgb(242 186 47 / 24%), transparent 28%),
+    #FEFEFE;
   color: #0b1c30;
   min-height: 100vh;
   padding: 88px 20px 112px;
@@ -958,7 +958,7 @@ p {
 .flow-header {
   align-items: center;
   backdrop-filter: blur(14px);
-  background: rgb(248 249 255 / 82%);
+  background: rgb(254 254 254 / 82%);
   display: flex;
   height: 64px;
   justify-content: space-between;
@@ -973,7 +973,7 @@ p {
 .flow-header a,
 .flow-header span {
   align-items: center;
-  color: #4648d4;
+  color: #0773BF;
   display: inline-flex;
   font-size: 2rem;
   height: 40px;
@@ -983,7 +983,7 @@ p {
 }
 
 .flow-header .flow-header-action {
-  border: 1px solid rgb(70 72 212 / 22%);
+  border: 1px solid rgb(7 115 191 / 22%);
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 900;
@@ -993,7 +993,7 @@ p {
 }
 
 .flow-header strong {
-  color: #4648d4;
+  color: #0773BF;
   font-size: 1.1rem;
   font-weight: 900;
 }
@@ -1026,7 +1026,7 @@ p {
 .flow-copy strong,
 .onboarding-card strong,
 .result-hero strong {
-  color: #4648d4;
+  color: #0773BF;
 }
 
 .flow-copy p,
@@ -1050,9 +1050,9 @@ p {
 }
 
 .mini-card {
-  background: #d3e4fe;
+  background: rgb(7 115 191 / 14%);
   border-radius: 24px;
-  box-shadow: 0 16px 36px rgb(70 72 212 / 12%);
+  box-shadow: 0 16px 36px rgb(7 115 191 / 12%);
   display: grid;
   gap: 12px;
   padding: 20px;
@@ -1062,9 +1062,9 @@ p {
 
 .mini-card span,
 .flow-badge {
-  background: #e1e0ff;
+  background: rgb(7 115 191 / 12%);
   border-radius: 999px;
-  color: #2f2ebe;
+  color: #0773BF;
   display: inline-flex;
   font-size: 0.78rem;
   font-weight: 900;
@@ -1083,20 +1083,20 @@ p {
 }
 
 .mini-card--friends {
-  background: #6063ee;
+  background: #0773BF;
   bottom: 8px;
-  color: #ffffff;
+  color: #FEFEFE;
   right: 10px;
   width: 55%;
 }
 
 .mini-card--friends span {
-  background: rgb(255 255 255 / 18%);
-  color: #ffffff;
+  background: rgb(254 254 254 / 18%);
+  color: #FEFEFE;
 }
 
 .mini-card--friends i {
-  background: #4edea3;
+  background: #F2BA2F;
   border-radius: 999px;
   display: block;
   height: 7px;
@@ -1105,7 +1105,7 @@ p {
 
 .mini-photo {
   align-items: center;
-  background: rgb(255 255 255 / 46%);
+  background: rgb(254 254 254 / 46%);
   border-radius: 18px;
   display: flex;
   font-size: 2.2rem;
@@ -1114,9 +1114,9 @@ p {
 }
 
 .floating-chip {
-  background: #ffffff;
+  background: #FEFEFE;
   border-radius: 999px;
-  box-shadow: 0 12px 28px rgb(70 72 212 / 14%);
+  box-shadow: 0 12px 28px rgb(7 115 191 / 14%);
   color: #0b1c30;
   font-weight: 900;
   padding: 10px 16px;
@@ -1135,8 +1135,8 @@ p {
 .flow-hint,
 .flow-callout,
 .privacy-note {
-  background: #eff4ff;
-  border: 1px solid rgb(199 196 215 / 45%);
+  background: rgb(7 115 191 / 8%);
+  border: 1px solid rgb(7 115 191 / 45%);
   border-radius: 18px;
   color: #464554;
   font-weight: 800;
@@ -1145,7 +1145,7 @@ p {
 }
 
 .flow-bottom-action {
-  background: linear-gradient(to top, #f8f9ff 72%, rgb(248 249 255 / 0%));
+  background: linear-gradient(to top, #FEFEFE 72%, rgb(254 254 254 / 0%));
   bottom: 0;
   left: 0;
   padding: 32px 20px 18px;
@@ -1155,10 +1155,10 @@ p {
 }
 
 .flow-bottom-action button {
-  background: #4648d4;
+  background: #0773BF;
   border-radius: 16px;
-  box-shadow: 0 14px 28px rgb(70 72 212 / 22%);
-  color: #ffffff;
+  box-shadow: 0 14px 28px rgb(7 115 191 / 22%);
+  color: #FEFEFE;
   font-size: 1.05rem;
   font-weight: 900;
   min-height: 56px;
@@ -1167,7 +1167,7 @@ p {
 
 .flow-bottom-action a {
   align-items: center;
-  color: #4648d4;
+  color: #0773BF;
   display: flex;
   font-weight: 900;
   justify-content: center;
@@ -1198,10 +1198,10 @@ p {
 
 .search-visual {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid rgb(199 196 215 / 45%);
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 45%);
   border-radius: 28px;
-  box-shadow: 0 18px 38px rgb(70 72 212 / 12%);
+  box-shadow: 0 18px 38px rgb(7 115 191 / 12%);
   display: flex;
   height: 224px;
   justify-content: center;
@@ -1216,23 +1216,23 @@ p {
 }
 
 .visual-grid span {
-  background: #d3e4fe;
+  background: rgb(7 115 191 / 14%);
   border-radius: 16px;
   height: 56px;
 }
 
 .visual-grid span:nth-child(2),
 .visual-grid span:nth-child(3) {
-  background: #6cf8bb;
+  background: #F2BA2F;
 }
 
 .search-visual b {
   align-items: center;
-  background: #ffffff;
-  border: 5px solid #4648d4;
+  background: #FEFEFE;
+  border: 5px solid #0773BF;
   border-radius: 999px;
   bottom: -16px;
-  color: #4648d4;
+  color: #0773BF;
   display: flex;
   font-size: 3rem;
   height: 88px;
@@ -1254,7 +1254,7 @@ p {
 }
 
 .flow-progress span {
-  color: #4648d4;
+  color: #0773BF;
   font-size: 0.86rem;
   font-weight: 900;
 }
@@ -1265,7 +1265,7 @@ p {
 
 .flow-progress i,
 .axis-row i {
-  background: #e5eeff;
+  background: rgb(7 115 191 / 10%);
   border-radius: 999px;
   display: block;
   height: 12px;
@@ -1274,7 +1274,7 @@ p {
 
 .flow-progress b,
 .axis-row b {
-  background: #4648d4;
+  background: #0773BF;
   border-radius: inherit;
   display: block;
   height: 100%;
@@ -1313,10 +1313,10 @@ p {
 .axis-card,
 .result-grid article,
 .report-card {
-  background: #ffffff;
-  border: 1px solid rgb(199 196 215 / 55%);
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 55%);
   border-radius: 18px;
-  box-shadow: 0 12px 30px rgb(70 72 212 / 7%);
+  box-shadow: 0 12px 30px rgb(7 115 191 / 7%);
 }
 
 .choice-tile,
@@ -1332,16 +1332,16 @@ p {
 }
 
 .choice-tile--active {
-  background: #eff4ff;
-  border-color: #4648d4;
-  outline: 3px solid rgb(70 72 212 / 20%);
+  background: rgb(7 115 191 / 8%);
+  border-color: #0773BF;
+  outline: 3px solid rgb(7 115 191 / 20%);
 }
 
 .choice-icon {
   align-items: center;
-  background: #e1e0ff;
+  background: rgb(7 115 191 / 12%);
   border-radius: 999px;
-  color: #4648d4;
+  color: #0773BF;
   display: flex;
   font-size: 1.5rem;
   height: 56px;
@@ -1373,7 +1373,7 @@ p {
 }
 
 .emoji-picker button {
-  background: #eff4ff;
+  background: rgb(7 115 191 / 8%);
   border: 2px solid transparent;
   border-radius: 999px;
   font-size: 1.4rem;
@@ -1381,8 +1381,8 @@ p {
 }
 
 .emoji-picker button.selected {
-  background: #e1e0ff;
-  border-color: #4648d4;
+  background: rgb(7 115 191 / 12%);
+  border-color: #0773BF;
 }
 
 .flow-field {
@@ -1391,13 +1391,13 @@ p {
 }
 
 .flow-field span {
-  color: #4648d4;
+  color: #0773BF;
   font-weight: 900;
 }
 
 .flow-field input {
-  background: #ffffff;
-  border: 1px solid #c7c4d7;
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 18%);
   border-radius: 14px;
   color: #0b1c30;
   font-size: 1rem;
@@ -1408,7 +1408,7 @@ p {
 
 .motivation-row {
   align-items: center;
-  background: #eff4ff;
+  background: rgb(7 115 191 / 8%);
   border-radius: 16px;
   display: flex;
   justify-content: space-between;
@@ -1417,15 +1417,15 @@ p {
 
 .motivation-row span,
 .motivation-row b {
-  color: #006c49;
+  color: #0773BF;
   font-weight: 900;
 }
 
 .complete-mark {
   align-items: center;
-  background: #6cf8bb;
+  background: #F2BA2F;
   border-radius: 999px;
-  color: #005236;
+  color: #0773BF;
   display: flex;
   font-size: 2.4rem;
   font-weight: 900;
@@ -1444,7 +1444,7 @@ p {
 
 .goal-icon {
   align-items: center;
-  background: #eff4ff;
+  background: rgb(7 115 191 / 8%);
   border-radius: 20px;
   display: flex;
   font-size: 2rem;
@@ -1468,7 +1468,7 @@ p {
 }
 
 .goal-card strong {
-  color: #4648d4;
+  color: #0773BF;
   display: block;
   font-size: 1.5rem;
   margin-top: 3px;
@@ -1480,9 +1480,9 @@ p {
 
 .bank-visual {
   align-items: center;
-  background: #e1e0ff;
+  background: rgb(7 115 191 / 12%);
   border-radius: 28px;
-  color: #4648d4;
+  color: #0773BF;
   display: flex;
   font-size: 3rem;
   height: 128px;
@@ -1492,13 +1492,13 @@ p {
 }
 
 .connect-primary {
-  background: #6063ee !important;
-  color: #ffffff !important;
+  background: #0773BF !important;
+  color: #FEFEFE !important;
   opacity: 0.72;
 }
 
 .connect-primary small {
-  color: rgb(255 255 255 / 82%) !important;
+  color: rgb(254 254 254 / 82%) !important;
 }
 
 .flow-callout,
@@ -1508,8 +1508,8 @@ p {
 }
 
 .flow-callout--error {
-  background: #ffdad6;
-  color: #93000a;
+  background: rgb(192 37 28 / 14%);
+  color: #C0251C;
 }
 
 .privacy-note {
@@ -1521,7 +1521,7 @@ p {
 
 .loading-orbit {
   align-items: center;
-  background: #e1e0ff;
+  background: rgb(7 115 191 / 12%);
   border-radius: 999px;
   display: flex;
   height: 170px;
@@ -1532,15 +1532,15 @@ p {
 
 .loading-orbit span {
   animation: flow-spin 1.4s linear infinite;
-  border: 6px solid rgb(70 72 212 / 14%);
-  border-top-color: #4648d4;
+  border: 6px solid rgb(7 115 191 / 14%);
+  border-top-color: #0773BF;
   border-radius: 999px;
   inset: -14px;
   position: absolute;
 }
 
 .loading-orbit b {
-  color: #4648d4;
+  color: #0773BF;
   font-size: 1.6rem;
 }
 
@@ -1556,8 +1556,8 @@ p {
 
 .loading-steps div {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #c7c4d7;
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 18%);
   border-radius: 16px;
   display: grid;
   gap: 10px;
@@ -1567,9 +1567,9 @@ p {
 
 .loading-steps i {
   align-items: center;
-  background: #eff4ff;
+  background: rgb(7 115 191 / 8%);
   border-radius: 999px;
-  color: #4648d4;
+  color: #0773BF;
   display: flex;
   font-style: normal;
   font-weight: 900;
@@ -1579,8 +1579,8 @@ p {
 }
 
 .loading-steps div.done i {
-  background: #6cf8bb;
-  color: #005236;
+  background: #F2BA2F;
+  color: #0773BF;
 }
 
 .loading-steps span {
@@ -1606,10 +1606,10 @@ p {
 }
 
 .result-actions a {
-  background: #ffffff;
-  border: 1px solid rgb(199 196 215 / 55%);
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 55%);
   border-radius: 999px;
-  color: #4648d4;
+  color: #0773BF;
   font-size: 0.84rem;
   font-weight: 900;
   padding: 9px 14px;
@@ -1624,9 +1624,9 @@ p {
 
 .result-character {
   align-items: center;
-  background: #e1e0ff;
+  background: rgb(7 115 191 / 12%);
   border-radius: 999px;
-  color: #4648d4;
+  color: #0773BF;
   display: flex;
   font-size: 4rem;
   height: 170px;
@@ -1665,7 +1665,7 @@ p {
 }
 
 .axis-row small:nth-child(3) {
-  color: #4648d4;
+  color: #0773BF;
   text-align: right;
 }
 
@@ -1695,7 +1695,7 @@ p {
 }
 
 .result-grid strong {
-  color: #4648d4;
+  color: #0773BF;
   font-size: 1.5rem;
 }
 
@@ -1715,16 +1715,16 @@ p {
 }
 
 .result-empty a {
-  background: #4648d4;
+  background: #0773BF;
   border-radius: 14px;
-  color: #ffffff;
+  color: #FEFEFE;
   font-weight: 900;
   padding: 14px 18px;
   text-decoration: none;
 }
 
 .settings-page {
-  background: #f9f9fc;
+  background: #FEFEFE;
   color: #1a1c1e;
   min-height: 100vh;
   padding: 88px 18px 36px;
@@ -1752,7 +1752,7 @@ p {
 }
 
 .settings-topbar h1 {
-  color: #005996;
+  color: #0773BF;
   font-size: 2rem;
   line-height: 1;
   margin: 0;
@@ -1760,7 +1760,7 @@ p {
 
 .settings-topbar button {
   background: transparent;
-  color: #005996;
+  color: #0773BF;
   font-size: 2rem;
   min-height: 44px;
   padding: 0;
@@ -1773,7 +1773,7 @@ p {
 
 .settings-profile {
   align-items: center;
-  background: #ffffff;
+  background: #FEFEFE;
   border: 1px solid rgb(192 199 211 / 38%);
   border-radius: 10px;
   box-shadow: 0 3px 8px rgb(0 0 0 / 4%);
@@ -1787,11 +1787,11 @@ p {
 .settings-avatar {
   align-items: center;
   background:
-    linear-gradient(135deg, rgb(8 114 189 / 18%), transparent 52%),
-    #263241;
-  border: 3px solid #0872bd;
+    linear-gradient(135deg, rgb(7 115 191 / 18%), transparent 52%),
+    #0773BF;
+  border: 3px solid #0773BF;
   border-radius: 16px;
-  color: #ffffff;
+  color: #FEFEFE;
   display: flex;
   font-size: 2rem;
   font-weight: 900;
@@ -1803,11 +1803,11 @@ p {
 
 .settings-avatar i {
   align-items: center;
-  background: #fec337;
-  border: 3px solid #ffffff;
+  background: #F2BA2F;
+  border: 3px solid #FEFEFE;
   border-radius: 999px;
   bottom: -5px;
-  color: #6f5100;
+  color: #172033;
   display: flex;
   font-size: 0.75rem;
   font-style: normal;
@@ -1846,7 +1846,7 @@ p {
 }
 
 .settings-item {
-  background: #ffffff;
+  background: #FEFEFE;
   border: 1px solid rgb(192 199 211 / 38%);
   border-radius: 10px;
   box-shadow: 0 1px 4px rgb(0 0 0 / 2%);
@@ -1864,7 +1864,7 @@ p {
 }
 
 .settings-item:hover {
-  background: #f3f3f6;
+  background: rgb(7 115 191 / 6%);
 }
 
 .settings-item:active {
@@ -1873,9 +1873,9 @@ p {
 
 .settings-item-icon {
   align-items: center;
-  background: #e8eef5;
+  background: rgb(7 115 191 / 10%);
   border-radius: 6px;
-  color: #0872bd;
+  color: #0773BF;
   display: flex;
   font-size: 1.55rem;
   font-weight: 900;
@@ -1895,7 +1895,7 @@ p {
 }
 
 .settings-item small {
-  color: #7a5900;
+  color: #172033;
   font-size: 0.76rem;
   font-weight: 800;
 }
@@ -1915,10 +1915,10 @@ p {
 }
 
 .settings-footer button {
-  background: #c9171d;
+  background: #C0251C;
   border-radius: 8px;
   box-shadow: 0 10px 20px rgb(201 23 29 / 18%);
-  color: #ffffff;
+  color: #FEFEFE;
   font-size: 1.2rem;
   font-weight: 900;
   gap: 12px;
@@ -1934,7 +1934,7 @@ p {
 }
 
 .settings-footer a {
-  color: #005996;
+  color: #0773BF;
   font-weight: 800;
   text-decoration: none;
 }
@@ -1955,8 +1955,8 @@ p {
 }
 
 .state-panel {
-  background: #ffffff;
-  border: 1px solid #dbe2ea;
+  background: #FEFEFE;
+  border: 1px solid rgb(7 115 191 / 16%);
   border-radius: 8px;
   margin: 0 auto;
   max-width: 960px;
@@ -1964,15 +1964,15 @@ p {
 }
 
 .state-panel--error {
-  background: #fff7f5;
-  border-color: #efb8a8;
+  background: rgb(192 37 28 / 7%);
+  border-color: rgb(192 37 28 / 24%);
   margin-top: 16px;
 }
 
 .spinner {
   animation: spin 0.8s linear infinite;
-  border: 3px solid #c9d4df;
-  border-top-color: #25636f;
+  border: 3px solid rgb(7 115 191 / 24%);
+  border-top-color: #0773BF;
   border-radius: 999px;
   display: inline-block;
   height: 28px;
@@ -1998,11 +1998,11 @@ p {
 }
 
 .toast--success {
-  background: #25636f;
+  background: #0773BF;
 }
 
 .toast--error {
-  background: #9b3d2e;
+  background: #C0251C;
 }
 
 @keyframes spin {
