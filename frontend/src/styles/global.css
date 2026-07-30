@@ -764,6 +764,76 @@ p {
   width: 96px;
 }
 
+.analysis-empty,
+.analysis-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.analysis-summary h3 {
+  color: #005996;
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.analysis-kicker {
+  color: #717882 !important;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+.axis-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+
+.axis-grid div {
+  background: #ffffff;
+  border: 1px solid #c0c7d3;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.axis-grid dt {
+  color: #717882;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.axis-grid dd {
+  color: #005996;
+  font-size: 1rem;
+  font-weight: 900;
+  margin: 2px 0 0;
+}
+
+.evidence-list {
+  color: #404751;
+  display: grid;
+  gap: 6px;
+  line-height: 1.5;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.question-line,
+.flow-status {
+  background: #ffffff;
+  border: 1px solid #c0c7d3;
+  border-radius: 8px;
+  color: #1a1c1e !important;
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
+.flow-status--error {
+  border-color: #c4271d;
+  color: #a31710 !important;
+}
+
 .mock-panel {
   background: #0872bd;
   color: #ffffff;
@@ -773,6 +843,18 @@ p {
 
 .mock-panel p {
   color: rgb(255 255 255 / 82%);
+}
+
+.mock-action {
+  background: #ffffff;
+  color: #005996;
+  font-weight: 900;
+  min-height: 48px;
+}
+
+.mock-action:disabled {
+  background: rgb(255 255 255 / 64%);
+  color: #404751;
 }
 
 .demo-login-card {

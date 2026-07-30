@@ -1,6 +1,14 @@
+import { skipToken } from "@reduxjs/toolkit/query";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import {
+  useAddGroupMemberMutation,
+  useApplyMockScenarioMutation,
+  useCreateAnalysisMutation,
+  useCreateGroupMutation,
+  useGetAnalysisQuery,
+  useGetLatestGroupAnalysisQuery,
   useListCategoriesQuery,
   useListGroupsQuery,
   useListMockScenariosQuery,
@@ -8,6 +16,7 @@ import {
 } from "../api/baseApi";
 import { useAppSelector } from "../app/hooks";
 import { ToastViewport } from "../components/feedback/ToastViewport";
+import type { AnalysisResponse, GroupResponse } from "../features/auth/types";
 
 interface HomePageProps {
   variant?: "user" | "admin";
@@ -21,11 +30,27 @@ const demoCredential = {
 export function HomePage({ variant = "user" }: HomePageProps) {
   const navigate = useNavigate();
   const user = useAppSelector((state) => state.auth.user);
+  const [activeAnalysisId, setActiveAnalysisId] = useState<string | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+  const [flowMessage, setFlowMessage] = useState<string | null>(null);
+  const [flowError, setFlowError] = useState<string | null>(null);
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
+  const [createGroup, { isLoading: isCreatingGroup }] = useCreateGroupMutation();
+  const [addGroupMember] = useAddGroupMemberMutation();
+  const [applyMockScenario, { isLoading: isApplyingMock }] = useApplyMockScenarioMutation();
+  const [createAnalysis, { isLoading: isCreatingAnalysis }] = useCreateAnalysisMutation();
   const { data: mockScenarios = [], isLoading: isMockLoading } = useListMockScenariosQuery();
   const { data: categories = [], isLoading: isCategoryLoading } = useListCategoriesQuery();
   const { data: groups = [], isLoading: isGroupLoading } = useListGroupsQuery(undefined, {
     skip: !user,
+  });
+  const readyGroup = groups.find((group) => group.can_analyze);
+  const latestGroupId = activeGroupId ?? readyGroup?.group_id ?? null;
+  const { data: latestAnalysis } = useGetLatestGroupAnalysisQuery(latestGroupId ?? skipToken, {
+    skip: !user || Boolean(activeAnalysisId),
+  });
+  const { data: activeAnalysis } = useGetAnalysisQuery(activeAnalysisId ?? skipToken, {
+    pollingInterval: activeAnalysisId ? 3000 : 0,
   });
 
   const onLogout = async () => {
@@ -33,9 +58,68 @@ export function HomePage({ variant = "user" }: HomePageProps) {
     navigate("/login", { replace: true });
   };
 
+  const startAnalysisForGroup = async (group: GroupResponse) => {
+    setFlowError(null);
+    setFlowMessage(`${group.name} 분석을 실행하는 중입니다.`);
+    setActiveGroupId(group.group_id);
+    try {
+      const analysis = await createAnalysis({
+        groupId: group.group_id,
+        body: {
+          period_start: "2026-05-01",
+          period_end: "2026-07-31",
+        },
+      }).unwrap();
+      setActiveAnalysisId(analysis.analysis_id);
+      setFlowMessage("분석 결과가 준비됐습니다.");
+    } catch (error) {
+      setFlowError(errorMessage(error));
+      setFlowMessage(null);
+    }
+  };
+
+  const runMockAnalysis = async () => {
+    setFlowError(null);
+    setFlowMessage("데모 모임을 생성하는 중입니다.");
+    try {
+      const group = await createGroup({
+        name: `Mock Insight ${new Date().toLocaleTimeString("ko-KR", { hour12: false })}`,
+        relationship_type: "FRIENDS",
+      }).unwrap();
+      const demoMembers = [
+        { display_name: "민지", mbti: "ENFP" },
+        { display_name: "도윤", mbti: "ISTJ" },
+        { display_name: "서연", mbti: "ESFJ" },
+        { display_name: "지훈", mbti: "ENTP" },
+      ];
+      setFlowMessage("구성원 MBTI를 등록하는 중입니다.");
+      for (const member of demoMembers) {
+        await addGroupMember({ groupId: group.group_id, body: member }).unwrap();
+      }
+      setFlowMessage("mock-v2 거래 데이터를 적용하는 중입니다.");
+      await applyMockScenario({ groupId: group.group_id, scenarioId: primaryScenario?.scenario_id ?? "mock-v2" }).unwrap();
+      setFlowMessage("규칙 기반 소비 MBTI와 Qwen 리포트를 생성하는 중입니다.");
+      const analysis = await createAnalysis({
+        groupId: group.group_id,
+        body: {
+          period_start: "2026-05-01",
+          period_end: "2026-07-31",
+        },
+      }).unwrap();
+      setActiveGroupId(group.group_id);
+      setActiveAnalysisId(analysis.analysis_id);
+      setFlowMessage("데모 분석 결과가 준비됐습니다.");
+    } catch (error) {
+      setFlowError(errorMessage(error));
+      setFlowMessage(null);
+    }
+  };
+
   const readyGroups = groups.filter((group) => group.can_analyze).length;
   const primaryScenario = mockScenarios[0];
   const categoryCount = categories.length;
+  const isFlowLoading = isCreatingGroup || isApplyingMock || isCreatingAnalysis;
+  const insightAnalysis = activeAnalysis ?? latestAnalysis;
 
   return (
     <main className="landing-page">
@@ -112,6 +196,8 @@ export function HomePage({ variant = "user" }: HomePageProps) {
                 progress={group.can_analyze ? 100 : Math.min(group.member_count * 25, 75)}
                 goal={`${group.member_count}/4명 구성`}
                 highlighted={index === 1}
+                actionLabel={group.can_analyze ? "분석 실행" : undefined}
+                onAction={group.can_analyze ? () => startAnalysisForGroup(group) : undefined}
               />
             ))
           : demoMeetings.map((meeting) => <MeetingCard key={meeting.name} {...meeting} />)}
@@ -124,10 +210,13 @@ export function HomePage({ variant = "user" }: HomePageProps) {
             <h2>소비 성향 분석 인사이트</h2>
           </div>
           {user ? (
-            <p>
-              현재 계정은 {groups.length}개 모임을 가지고 있고, 그중 {readyGroups}개 모임이 분석 준비 상태입니다.
-              BE Phase 6 분석 실행 API가 연결되면 이 영역에서 실제 소비 MBTI와 Qwen 리포트를 표시합니다.
-            </p>
+            <AnalysisInsight
+              analysis={insightAnalysis}
+              groupCount={groups.length}
+              readyGroupCount={readyGroups}
+              message={flowMessage}
+              error={flowError}
+            />
           ) : (
             <p>
               UFC는 2~4인 모임통장 소비 데이터를 바탕으로 규칙 기반 소비 MBTI와 근거 요약을 보여주는
@@ -135,7 +224,7 @@ export function HomePage({ variant = "user" }: HomePageProps) {
             </p>
           )}
           <div className="insight-score" aria-label="예시 소비 MBTI">
-            <span>ESTJ</span>
+            <span>{insightAnalysis?.consumption_mbti_result?.mbti_type ?? "ESTJ"}</span>
           </div>
         </article>
 
@@ -149,6 +238,11 @@ export function HomePage({ variant = "user" }: HomePageProps) {
           ) : (
             <p>Mock scenario metadata를 불러오는 중입니다.</p>
           )}
+          {user ? (
+            <button className="mock-action" disabled={isFlowLoading || isMockLoading} onClick={runMockAnalysis} type="button">
+              {isFlowLoading ? "데모 분석 실행 중" : "mock-v2로 분석 실행"}
+            </button>
+          ) : null}
           <div className="demo-login-card" id="profile">
             <span>로컬 테스트 계정</span>
             <code>{demoCredential.email}</code>
@@ -194,9 +288,21 @@ interface MeetingCardProps {
   progress: number;
   goal: string;
   highlighted?: boolean;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
-function MeetingCard({ icon, name, relationship, mbti, progress, goal, highlighted }: MeetingCardProps) {
+function MeetingCard({
+  icon,
+  name,
+  relationship,
+  mbti,
+  progress,
+  goal,
+  highlighted,
+  actionLabel,
+  onAction,
+}: MeetingCardProps) {
   return (
     <article className={`meeting-card-ui${highlighted ? " meeting-card-ui--highlighted" : ""}`}>
       <div className="meeting-card-header">
@@ -225,12 +331,83 @@ function MeetingCard({ icon, name, relationship, mbti, progress, goal, highlight
           <span>목표 정보</span>
           <strong>{goal}</strong>
         </div>
-        <button aria-label={`${name} 자세히 보기`} type="button">
-          ›
+        <button aria-label={actionLabel ? `${name} ${actionLabel}` : `${name} 자세히 보기`} onClick={onAction} type="button">
+          {actionLabel ? "실행" : "›"}
         </button>
       </footer>
     </article>
   );
+}
+
+function AnalysisInsight({
+  analysis,
+  groupCount,
+  readyGroupCount,
+  message,
+  error,
+}: {
+  analysis?: AnalysisResponse;
+  groupCount: number;
+  readyGroupCount: number;
+  message: string | null;
+  error: string | null;
+}) {
+  if (!analysis) {
+    return (
+      <div className="analysis-empty">
+        <p>
+          현재 계정은 {groupCount}개 모임을 가지고 있고, 그중 {readyGroupCount}개 모임이 분석 준비
+          상태입니다. 준비된 모임에서 분석을 실행하거나 mock-v2 데모 분석을 만들 수 있습니다.
+        </p>
+        <StatusLine message={message} error={error} />
+      </div>
+    );
+  }
+
+  const report = analysis.ai_report?.report_content;
+  const result = analysis.consumption_mbti_result;
+  const topEvidence = analysis.behavior_metrics
+    .filter((metric) => metric.status === "AVAILABLE")
+    .flatMap((metric) => metric.evidence.slice(0, 1))
+    .slice(0, 3);
+
+  return (
+    <div className="analysis-summary">
+      <p className="analysis-kicker">
+        {analysis.status} · {analysis.result_status ?? "결과 대기"} · {analysis.is_synthetic ? "Mock 데이터" : "사용자 데이터"}
+      </p>
+      <h3>{report?.headline ?? "소비 MBTI 분석 결과"}</h3>
+      <p>{report?.summary ?? "규칙 엔진 결과와 Evidence를 기반으로 분석 결과를 표시합니다."}</p>
+      {result ? (
+        <dl className="axis-grid">
+          {(["EI", "SN", "TF", "JP"] as const).map((axis) => (
+            <div key={axis}>
+              <dt>{axis}</dt>
+              <dd>{formatRatio(result.axis_scores[axis])}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+      {topEvidence.length > 0 ? (
+        <ul className="evidence-list">
+          {topEvidence.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : null}
+      {report?.conversationQuestions?.length ? (
+        <p className="question-line">{report.conversationQuestions[0]}</p>
+      ) : null}
+      <StatusLine message={message} error={error} />
+    </div>
+  );
+}
+
+function StatusLine({ message, error }: { message: string | null; error: string | null }) {
+  if (!message && !error) {
+    return null;
+  }
+  return <p className={error ? "flow-status flow-status--error" : "flow-status"}>{error ?? message}</p>;
 }
 
 function MobileNav() {
@@ -254,6 +431,39 @@ function relationshipLabel(value: string): string {
     OTHER: "Group",
   };
   return labels[value] ?? "Group";
+}
+
+function formatRatio(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return String(value);
+  }
+  return `${Math.round(numeric * 100)}%`;
+}
+
+function errorMessage(error: unknown): string {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "data" in error &&
+    typeof error.data === "object" &&
+    error.data !== null &&
+    "error" in error.data
+  ) {
+    const payload = error.data.error;
+    if (
+      typeof payload === "object" &&
+      payload !== null &&
+      "message" in payload &&
+      typeof payload.message === "string"
+    ) {
+      return payload.message;
+    }
+  }
+  return "요청을 처리하지 못했습니다. 백엔드 상태와 로그인 세션을 확인해 주세요.";
 }
 
 const demoMeetings: MeetingCardProps[] = [

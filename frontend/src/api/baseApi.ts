@@ -10,16 +10,22 @@ import type { RootState } from "../app/store";
 import { sessionCleared, tokenReceived, userReceived } from "../features/auth/authSlice";
 import { refreshTokenStorage } from "../features/auth/tokenStorage";
 import type {
+  AnalysisCreateRequest,
+  AnalysisResponse,
   CategoryResponse,
+  GroupCreateRequest,
+  GroupMemberResponse,
   GroupResponse,
   LoginRequest,
   LogoutRequest,
   LogoutResponse,
   MeResponse,
+  MemberCreateRequest,
   MockScenarioResponse,
   RefreshRequest,
   SignupRequest,
   TokenResponse,
+  TransactionImportResponse,
 } from "../features/auth/types";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -96,7 +102,7 @@ const baseQueryWithRefresh: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQu
 export const baseApi = createApi({
   reducerPath: "baseApi",
   baseQuery: baseQueryWithRefresh,
-  tagTypes: ["Categories", "Groups", "MockScenarios", "Session"],
+  tagTypes: ["Analyses", "Categories", "Groups", "MockScenarios", "Session"],
   endpoints: (builder) => ({
     signup: builder.mutation<TokenResponse, SignupRequest>({
       query: (body) => ({ url: "/auth/signup", method: "POST", body }),
@@ -147,6 +153,18 @@ export const baseApi = createApi({
       query: () => "/groups",
       providesTags: ["Groups"],
     }),
+    createGroup: builder.mutation<GroupResponse, GroupCreateRequest>({
+      query: (body) => ({ url: "/groups", method: "POST", body }),
+      invalidatesTags: ["Groups"],
+    }),
+    addGroupMember: builder.mutation<GroupMemberResponse, { groupId: string; body: MemberCreateRequest }>({
+      query: ({ groupId, body }) => ({
+        url: `/groups/${groupId}/members`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Groups"],
+    }),
     listCategories: builder.query<CategoryResponse[], void>({
       query: () => "/categories",
       providesTags: ["Categories"],
@@ -155,10 +173,45 @@ export const baseApi = createApi({
       query: () => "/mock-scenarios",
       providesTags: ["MockScenarios"],
     }),
+    applyMockScenario: builder.mutation<
+      TransactionImportResponse,
+      { groupId: string; scenarioId: string }
+    >({
+      query: ({ groupId, scenarioId }) => ({
+        url: `/groups/${groupId}/mock-scenarios/${scenarioId}/apply`,
+        method: "POST",
+      }),
+      invalidatesTags: ["Analyses", "Groups"],
+    }),
+    createAnalysis: builder.mutation<
+      AnalysisResponse,
+      { groupId: string; body: AnalysisCreateRequest }
+    >({
+      query: ({ groupId, body }) => ({
+        url: `/groups/${groupId}/analyses`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Analyses"],
+    }),
+    getAnalysis: builder.query<AnalysisResponse, string>({
+      query: (analysisId) => `/analyses/${analysisId}`,
+      providesTags: (_result, _error, analysisId) => [{ type: "Analyses", id: analysisId }],
+    }),
+    getLatestGroupAnalysis: builder.query<AnalysisResponse, string>({
+      query: (groupId) => `/groups/${groupId}/analyses/latest`,
+      providesTags: (_result, _error, groupId) => [{ type: "Analyses", id: `latest-${groupId}` }],
+    }),
   }),
 });
 
 export const {
+  useAddGroupMemberMutation,
+  useApplyMockScenarioMutation,
+  useCreateAnalysisMutation,
+  useCreateGroupMutation,
+  useGetAnalysisQuery,
+  useGetLatestGroupAnalysisQuery,
   useListCategoriesQuery,
   useListGroupsQuery,
   useListMockScenariosQuery,
