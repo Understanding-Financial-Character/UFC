@@ -27,6 +27,8 @@ The backend provides `analysis-input-v1` with source-level transaction facts. Th
 
 AN Phase 2 adds the deterministic behavior feature engine. It consumes preprocessed `NormalizedTransaction` rows and emits `behavior-features-v1` without applying axis weights, MBTI rules, persistence, API routing, or Qwen3 calls.
 
+AN Phase 3 adds the deterministic consumption MBTI rule engine. It consumes `BehaviorMetricsResult`, applies `consumption-mbti-v1` axis weights, calculates coverage and margins, and emits nullable `mbti_type` without persistence, API routing, or Qwen3 calls.
+
 ## Entry Documents
 
 - [Feature Catalog](feature-catalog.md)

@@ -4,11 +4,11 @@
 
 All rule-engine input metrics must be normalized to `0.0` through `1.0`.
 
-Ratios already in `0.0` through `1.0` keep their value after validation. Volatility metrics are capped at `1.0` unless a later rule version documents another transform.
+Ratios already in `0.0` through `1.0` keep their value after validation. AN Phase 2 volatility records raw CV separately and caps only `normalized_score` at `1.0`.
 
 ## Rounding
 
-Stored and API-facing metric values use fixed two-decimal half-up rounding unless a phase contract states a more precise storage format.
+AN Phase 3 rule-engine values use four-decimal rounding for axis scores, coverage, normalized weights, and contributions.
 
 ## Axis Score Direction
 
@@ -36,3 +36,17 @@ coverage = sum(configured_weight of available features)
 ```
 
 The rule engine may defer an axis when coverage is below the configured threshold.
+
+AN Phase 3 thresholds:
+
+- `coverage >= 0.70`: standard
+- `0.50 <= coverage < 0.70`: provisional
+- `coverage < 0.50`: deferred
+
+Axis margin is measured in points from the midpoint:
+
+```text
+margin = abs(axis_score - 0.5) * 100
+```
+
+Margins below `5.0` points add `LOW_AXIS_SCORE_MARGIN`.

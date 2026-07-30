@@ -29,9 +29,46 @@ The same direction contract is recorded in `backend/app/analysis/constants.py`.
 - Produce final MBTI only when all four axes are available.
 - Mark mock-data results as `PROVISIONAL`.
 
+AN Phase 3 implements `consumption-mbti-v1` in `backend/app/analysis/rules/consumption-mbti-v1.yaml`.
+
+Configured thresholds:
+
+- `axis coverage >= 0.70`: standard axis evidence
+- `0.50 <= axis coverage < 0.70`: axis can be decided, but result is provisional
+- `axis coverage < 0.50`: axis decision is deferred
+- `axis margin < 5.0`: `LOW_AXIS_SCORE_MARGIN`
+
+Unavailable features are removed from the axis denominator and the remaining weights are renormalized.
+
+## Implemented Axis Inputs
+
+EI high means E:
+
+- E signals: `SHARED_EXPENSE_RATIO`, `WEEKEND_SOCIAL_SPENDING_RATIO`, `NIGHT_SPENDING_RATIO`, `TRAVEL_EXPERIENCE_RATIO`
+- I signals: `PRACTICAL_SPENDING_RATIO`
+
+SN high means N:
+
+- N signals: `CATEGORY_DIVERSITY_SCORE`, `EXPERIENCE_SPENDING_RATIO`, `TRAVEL_EXPERIENCE_RATIO`
+- S signals: `CATEGORY_CONCENTRATION`, `PRACTICAL_SPENDING_RATIO`
+
+TF high means F:
+
+- F signals: `RELATIONSHIP_SPENDING_RATIO`, `SHARED_EXPERIENCE_RATIO`, `GIFT_ANNIVERSARY_RATIO`, `SHARED_EXPENSE_RATIO`
+- T signals: `SAVING_EDUCATION_RATIO`
+
+JP high means P:
+
+- P signals: `REPEAT_MERCHANT_RATIO`, `WEEKLY_EXPENSE_VOLATILITY`, `OUTLIER_RATIO`
+- J signals: `PLANNED_EXPENSE_RATIO`, `RECURRING_EXPENSE_RATIO`
+
+Unavailable MVP signals such as living-area distance, restaurant quality, discounts, payback, and true new-merchant status without historical baseline are excluded from the rule version.
+
 ## Output Rules
 
 `consumption_mbti_results.mbti_type` is nullable. When data is insufficient, preserve axis scores and limitations instead of forcing a type.
+
+`mbti_type` is generated only when EI, SN, TF, and JP are all decided. If any axis is deferred, `result_status=INSUFFICIENT_DATA`.
 
 ## Versioning
 

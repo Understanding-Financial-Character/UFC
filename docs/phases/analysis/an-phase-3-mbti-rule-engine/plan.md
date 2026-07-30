@@ -1,7 +1,7 @@
 # AN Phase 3 - Consumption MBTI Rule Engine
 
 ## Status
-NOT_STARTED
+IMPLEMENTED
 ## Goal
 Implement the versioned rule engine that maps metrics to axis scores and nullable consumption MBTI.
 ## Why
@@ -21,12 +21,12 @@ None directly.
 ## Security Considerations
 No raw identities or full transaction arrays.
 ## Implementation Tasks
-Implement rule version and golden tests.
+Implemented `consumption-mbti-v1.yaml`, rule loader, axis scorer, confidence helper, and golden tests.
 ## Test Scenarios
-All four axes, low coverage, low margin, insufficient data, mock provisional.
+Strong E/I, S/N, T/F, J/P, borderline, insufficient data, nullable feature coverage, synthetic data, outlier contribution, and conflicting signals.
 ## Completion Criteria
 Rule outputs verified against golden scenarios.
 ## Branch
-`feat/an-phase-3-mbti-rule-engine`
+`feat/an-phase-3-consumption-mbti-rule-engine`
 ## Dependencies
 AN Phase 2.
