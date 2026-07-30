@@ -11,6 +11,7 @@ IMPLEMENTED
 - Weekly volatility with zero-division and cap handling.
 - Median/MAD outlier detection with deterministic fallback.
 - Defensive non-`WITHDRAWAL` filtering in the feature engine.
+- PR #15 P1 fixes: weekend/night predicates use `Asia/Seoul`, `NEW_MERCHANT_RATIO` is unavailable without a historical baseline, repeat merchants count visits after first occurrence, and weekly volatility includes zero-spend calendar weeks with raw CV separated from capped normalized score.
 - Unit tests for required AN Phase 2 scenarios.
 ## Remaining
 No AN Phase 2 implementation work remains. Axis weighting, rule engine, DB persistence, API routing, and Qwen3 usage remain later phases.
@@ -21,7 +22,7 @@ None.
 ## Linked PR
 PR #6 was reviewed as prior art; this branch is the AN Phase 2 successor implementation.
 ## Commits
-`ebed946`
+`ebed946`, pending PR #15 review-fix commit.
 ## Blockers
 None.
 ## Handover Notes

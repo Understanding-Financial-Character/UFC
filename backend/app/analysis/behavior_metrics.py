@@ -1,24 +1,29 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Callable
+from datetime import UTC, date, datetime, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from math import log, sqrt
 from statistics import median
+from zoneinfo import ZoneInfo
 
 from app.analysis.contracts import (
+    BEHAVIOR_FEATURE_POLICY_VERSION,
     BEHAVIOR_FEATURE_SCHEMA_VERSION,
+    CATEGORY_MAPPING_VERSION,
     AnalysisTransactionType,
     BehaviorFeatureCode,
     BehaviorFeatureResult,
     BehaviorFeatureStatus,
     BehaviorFeatureUnit,
     BehaviorGroup,
+    BehaviorMetricsInput,
     BehaviorMetricsResult,
     NormalizedTransaction,
 )
 
-SOCIAL_CATEGORY_CODES = frozenset({"FOOD", "CAFE", "GATHERING", "CULTURE_LEISURE"})
+MVP_ANALYSIS_TIMEZONE = "Asia/Seoul"
 TRAVEL_EXPERIENCE_CATEGORY_CODES = frozenset(
     {"TRAVEL", "ACCOMMODATION", "CULTURE_LEISURE"}
 )
@@ -33,13 +38,15 @@ MIN_OUTLIER_TRANSACTIONS = 5
 
 
 def calculate_behavior_metrics(
-    transactions: tuple[NormalizedTransaction, ...],
+    metrics_input: BehaviorMetricsInput | tuple[NormalizedTransaction, ...],
 ) -> BehaviorMetricsResult:
+    context = coerce_metrics_input(metrics_input)
+    timezone = ZoneInfo(context.timezone)
     spending_transactions = tuple(
         sorted(
             (
                 transaction
-                for transaction in transactions
+                for transaction in context.transactions
                 if transaction.transaction_type == AnalysisTransactionType.WITHDRAWAL
             ),
             key=lambda transaction: (transaction.occurred_at, transaction.transaction_id),
@@ -51,105 +58,122 @@ def calculate_behavior_metrics(
             feature_code=BehaviorFeatureCode.SHARED_EXPENSE_RATIO,
             transactions=marked_transactions(spending_transactions, "is_shared_expense"),
             predicate=lambda transaction: transaction.is_shared_expense is True,
-            unavailable_reason="공동지출 표시가 있는 거래가 없어 계산할 수 없습니다.",
-            evidence_label="공동지출",
+            unavailable_reason="No transactions have is_shared_expense markers.",
+            evidence_label="Shared expense spending",
         ),
         amount_ratio(
             feature_code=BehaviorFeatureCode.WEEKEND_SOCIAL_SPENDING_RATIO,
             transactions=spending_transactions,
-            predicate=is_weekend_social_spending,
-            unavailable_reason="거래가 없어 주말 사회적 지출 비율을 계산할 수 없습니다.",
-            evidence_label="주말 사회적 지출",
+            predicate=lambda transaction: is_weekend_social_spending(transaction, timezone),
+            unavailable_reason="No spending transactions are available for weekend social ratio.",
+            evidence_label="Weekend social spending",
         ),
         amount_ratio(
             feature_code=BehaviorFeatureCode.NIGHT_SPENDING_RATIO,
             transactions=spending_transactions,
-            predicate=is_night_spending,
-            unavailable_reason="거래가 없어 야간 지출 비율을 계산할 수 없습니다.",
-            evidence_label="야간 지출",
+            predicate=lambda transaction: is_night_spending(transaction, timezone),
+            unavailable_reason="No spending transactions are available for night spending ratio.",
+            evidence_label="Night spending",
         ),
         amount_ratio(
             feature_code=BehaviorFeatureCode.TRAVEL_EXPERIENCE_RATIO,
             transactions=spending_transactions,
             predicate=is_travel_experience_spending,
-            unavailable_reason="거래가 없어 여행·경험 지출 비율을 계산할 수 없습니다.",
-            evidence_label="여행·경험 지출",
+            unavailable_reason="No spending transactions are available for travel experience ratio.",
+            evidence_label="Travel and experience spending",
         ),
         amount_ratio(
             feature_code=BehaviorFeatureCode.PRACTICAL_SPENDING_RATIO,
             transactions=behavior_group_transactions(spending_transactions),
             predicate=is_practical_spending,
-            unavailable_reason="behavior_group이 있는 거래가 없어 실속 지출 비율을 계산할 수 없습니다.",
-            evidence_label="실속 지출",
+            unavailable_reason="No transactions have behavior_group for practical spending ratio.",
+            evidence_label="Practical spending",
         ),
         category_concentration(spending_transactions),
         category_diversity_score(spending_transactions),
-        merchant_ratio(
-            feature_code=BehaviorFeatureCode.NEW_MERCHANT_RATIO,
-            transactions=spending_transactions,
-            mode="new",
-        ),
-        merchant_ratio(
-            feature_code=BehaviorFeatureCode.REPEAT_MERCHANT_RATIO,
-            transactions=spending_transactions,
-            mode="repeat",
-        ),
+        new_merchant_ratio(spending_transactions),
+        repeat_merchant_ratio(spending_transactions),
         amount_ratio(
             feature_code=BehaviorFeatureCode.EXPERIENCE_SPENDING_RATIO,
             transactions=behavior_group_transactions(spending_transactions),
             predicate=lambda transaction: transaction.behavior_group == BehaviorGroup.EXPERIENCE,
-            unavailable_reason="behavior_group이 있는 거래가 없어 경험 지출 비율을 계산할 수 없습니다.",
-            evidence_label="경험 지출",
+            unavailable_reason="No transactions have behavior_group for experience spending ratio.",
+            evidence_label="Experience spending",
         ),
         amount_ratio(
             feature_code=BehaviorFeatureCode.SAVING_EDUCATION_RATIO,
             transactions=saving_education_countable_transactions(spending_transactions),
             predicate=is_saving_education_spending,
-            unavailable_reason="저축·교육 판단에 필요한 category_code 또는 behavior_group이 없습니다.",
-            evidence_label="저축·교육 지출",
+            unavailable_reason=(
+                "No transactions have category_code or behavior_group for saving education ratio."
+            ),
+            evidence_label="Saving and education spending",
         ),
         amount_ratio(
             feature_code=BehaviorFeatureCode.RELATIONSHIP_SPENDING_RATIO,
             transactions=behavior_group_transactions(spending_transactions),
             predicate=lambda transaction: transaction.behavior_group == BehaviorGroup.RELATIONSHIP,
-            unavailable_reason="behavior_group이 있는 거래가 없어 관계형 지출 비율을 계산할 수 없습니다.",
-            evidence_label="관계형 지출",
+            unavailable_reason="No transactions have behavior_group for relationship spending ratio.",
+            evidence_label="Relationship spending",
         ),
         amount_ratio(
             feature_code=BehaviorFeatureCode.SHARED_EXPERIENCE_RATIO,
             transactions=marked_transactions(spending_transactions, "is_shared_expense"),
             predicate=is_shared_experience_spending,
-            unavailable_reason="공동지출 표시가 있는 거래가 없어 공동 경험 비율을 계산할 수 없습니다.",
-            evidence_label="공동 경험 지출",
+            unavailable_reason="No transactions have is_shared_expense markers.",
+            evidence_label="Shared experience spending",
         ),
         amount_ratio(
             feature_code=BehaviorFeatureCode.GIFT_ANNIVERSARY_RATIO,
             transactions=category_code_transactions(spending_transactions),
             predicate=lambda transaction: normalized_code(transaction)
             in GIFT_ANNIVERSARY_CATEGORY_CODES,
-            unavailable_reason="category_code가 있는 거래가 없어 선물·기념일 비율을 계산할 수 없습니다.",
-            evidence_label="선물·기념일 지출",
+            unavailable_reason="No transactions have category_code for gift anniversary ratio.",
+            evidence_label="Gift and anniversary spending",
         ),
         amount_ratio(
             feature_code=BehaviorFeatureCode.PLANNED_EXPENSE_RATIO,
             transactions=marked_transactions(spending_transactions, "is_planned"),
             predicate=lambda transaction: transaction.is_planned is True,
-            unavailable_reason="계획 지출 표시가 있는 거래가 없어 계산할 수 없습니다.",
-            evidence_label="계획 지출",
+            unavailable_reason="No transactions have is_planned markers.",
+            evidence_label="Planned spending",
         ),
         amount_ratio(
             feature_code=BehaviorFeatureCode.RECURRING_EXPENSE_RATIO,
             transactions=marked_transactions(spending_transactions, "is_recurring"),
             predicate=lambda transaction: transaction.is_recurring is True,
-            unavailable_reason="정기 지출 표시가 있는 거래가 없어 계산할 수 없습니다.",
-            evidence_label="정기 지출",
+            unavailable_reason="No transactions have is_recurring markers.",
+            evidence_label="Recurring spending",
         ),
-        weekly_expense_volatility(spending_transactions),
+        weekly_expense_volatility(spending_transactions, context, timezone),
         outlier_ratio(spending_transactions),
     )
     return BehaviorMetricsResult(
         schema_version=BEHAVIOR_FEATURE_SCHEMA_VERSION,
+        policy_version=BEHAVIOR_FEATURE_POLICY_VERSION,
+        category_mapping_version=CATEGORY_MAPPING_VERSION,
+        analysis_timezone=context.timezone,
         features=features,
+    )
+
+
+def coerce_metrics_input(
+    metrics_input: BehaviorMetricsInput | tuple[NormalizedTransaction, ...],
+) -> BehaviorMetricsInput:
+    if isinstance(metrics_input, BehaviorMetricsInput):
+        return metrics_input
+    transactions = metrics_input
+    if transactions:
+        started_at = min(transaction.occurred_at for transaction in transactions)
+        ended_at = max(transaction.occurred_at for transaction in transactions)
+    else:
+        started_at = datetime(1970, 1, 1, tzinfo=UTC)
+        ended_at = started_at
+    return BehaviorMetricsInput(
+        transactions=transactions,
+        observation_started_at=started_at,
+        observation_ended_at=ended_at,
+        timezone=MVP_ANALYSIS_TIMEZONE,
     )
 
 
@@ -172,7 +196,7 @@ def amount_ratio(
         return unavailable(
             feature_code=feature_code,
             unit=BehaviorFeatureUnit.AMOUNT_RATIO,
-            reason="분모 금액이 0이라 계산할 수 없습니다.",
+            reason="Denominator amount is zero.",
             sample_count=len(transactions),
         )
     numerator_transactions = tuple(transaction for transaction in transactions if predicate(transaction))
@@ -186,8 +210,8 @@ def amount_ratio(
         sample_count=len(transactions),
         evidence=(
             (
-                f"{evidence_label} {format_amount(numerator)}원이 "
-                f"표본 금액 {format_amount(denominator)}원의 {percent(value)}입니다."
+                f"{evidence_label}: {format_amount(numerator)} of "
+                f"{format_amount(denominator)} amount, {percent(value)}."
             ),
         ),
     )
@@ -201,7 +225,7 @@ def category_concentration(
         return unavailable(
             feature_code=BehaviorFeatureCode.CATEGORY_CONCENTRATION,
             unit=BehaviorFeatureUnit.AMOUNT_RATIO,
-            reason="category_code가 있는 거래가 없어 카테고리 집중도를 계산할 수 없습니다.",
+            reason="No transactions have category_code for category concentration.",
         )
     category_amounts = amount_by_category(category_transactions)
     top_category, top_amount = max(sorted(category_amounts.items()), key=lambda item: item[1])
@@ -215,8 +239,8 @@ def category_concentration(
         sample_count=len(category_transactions),
         evidence=(
             (
-                f"{top_category} 카테고리가 category_code 표본 금액 "
-                f"{format_amount(denominator)}원의 {percent(value)}입니다."
+                f"Top category {top_category}: {format_amount(top_amount)} of "
+                f"{format_amount(denominator)} category-coded amount, {percent(value)}."
             ),
         ),
     )
@@ -231,7 +255,7 @@ def category_diversity_score(
         return unavailable(
             feature_code=BehaviorFeatureCode.CATEGORY_DIVERSITY_SCORE,
             unit=BehaviorFeatureUnit.SCORE,
-            reason=f"서로 다른 category_code {MIN_DIVERSITY_CATEGORIES}개 이상이 필요합니다.",
+            reason=f"At least {MIN_DIVERSITY_CATEGORIES} distinct category codes are required.",
             sample_count=len(category_transactions),
         )
     total = sum(category_amounts.values(), Decimal(0))
@@ -248,57 +272,62 @@ def category_diversity_score(
         sample_count=len(category_transactions),
         evidence=(
             (
-                f"{len(category_amounts)}개 카테고리의 금액 분포로 다양성 점수 "
-                f"{format_score(value)}를 계산했습니다."
+                f"Category diversity score {format_score(value)} from "
+                f"{len(category_amounts)} category amount buckets."
             ),
         ),
     )
 
 
-def merchant_ratio(
-    *,
-    feature_code: BehaviorFeatureCode,
+def new_merchant_ratio(
     transactions: tuple[NormalizedTransaction, ...],
-    mode: str,
+) -> BehaviorFeatureResult:
+    merchant_transactions = tuple(
+        transaction for transaction in transactions if transaction.merchant_key
+    )
+    return unavailable(
+        feature_code=BehaviorFeatureCode.NEW_MERCHANT_RATIO,
+        unit=BehaviorFeatureUnit.COUNT_RATIO,
+        reason=(
+            "Historical merchant baseline is unavailable, so true new merchant status "
+            "cannot be determined in AN Phase 2."
+        ),
+        sample_count=len(merchant_transactions),
+    )
+
+
+def repeat_merchant_ratio(
+    transactions: tuple[NormalizedTransaction, ...],
 ) -> BehaviorFeatureResult:
     merchant_transactions = tuple(
         transaction for transaction in transactions if transaction.merchant_key
     )
     if len(merchant_transactions) < MIN_MERCHANT_ROWS:
         return unavailable(
-            feature_code=feature_code,
+            feature_code=BehaviorFeatureCode.REPEAT_MERCHANT_RATIO,
             unit=BehaviorFeatureUnit.COUNT_RATIO,
-            reason=f"merchant_key가 있는 거래 {MIN_MERCHANT_ROWS}건 이상이 필요합니다.",
+            reason=f"At least {MIN_MERCHANT_ROWS} transactions with merchant_key are required.",
             sample_count=len(merchant_transactions),
         )
-    merchant_counts = Counter(transaction.merchant_key for transaction in merchant_transactions)
-    if mode == "new":
-        seen: set[str] = set()
-        numerator_count = 0
-        for transaction in merchant_transactions:
-            merchant_key = transaction.merchant_key
-            if merchant_key not in seen:
-                numerator_count += 1
-                seen.add(merchant_key)
-        evidence_label = "신규 가맹점"
-    else:
-        numerator_count = sum(
-            1
-            for transaction in merchant_transactions
-            if merchant_counts[transaction.merchant_key] > 1
-        )
-        evidence_label = "반복 가맹점"
-    value = ratio(Decimal(numerator_count), Decimal(len(merchant_transactions)))
+    seen: set[str] = set()
+    repeat_count = 0
+    for transaction in merchant_transactions:
+        merchant_key = transaction.merchant_key
+        if merchant_key in seen:
+            repeat_count += 1
+        else:
+            seen.add(merchant_key)
+    value = ratio(Decimal(repeat_count), Decimal(len(merchant_transactions)))
     return available(
-        feature_code=feature_code,
+        feature_code=BehaviorFeatureCode.REPEAT_MERCHANT_RATIO,
         raw_value=value,
         normalized_score=value,
         unit=BehaviorFeatureUnit.COUNT_RATIO,
         sample_count=len(merchant_transactions),
         evidence=(
             (
-                f"{evidence_label} 거래 {numerator_count}건이 merchant_key 표본 "
-                f"{len(merchant_transactions)}건의 {percent(value)}입니다."
+                f"Repeat merchant visits after first occurrence: {repeat_count} of "
+                f"{len(merchant_transactions)} merchant-key transactions, {percent(value)}."
             ),
         ),
     )
@@ -306,39 +335,45 @@ def merchant_ratio(
 
 def weekly_expense_volatility(
     transactions: tuple[NormalizedTransaction, ...],
+    context: BehaviorMetricsInput,
+    timezone: ZoneInfo,
 ) -> BehaviorFeatureResult:
-    weekly_amounts: dict[tuple[int, int], Decimal] = defaultdict(lambda: Decimal(0))
-    for transaction in transactions:
-        iso_year, iso_week, _ = transaction.occurred_at.isocalendar()
-        weekly_amounts[(iso_year, iso_week)] += transaction.amount
-    if len(weekly_amounts) < MIN_WEEKLY_VOLATILITY_WEEKS:
+    week_starts = tuple(iter_week_starts(context, timezone))
+    if len(week_starts) < MIN_WEEKLY_VOLATILITY_WEEKS:
         return unavailable(
             feature_code=BehaviorFeatureCode.WEEKLY_EXPENSE_VOLATILITY,
             unit=BehaviorFeatureUnit.SCORE,
-            reason=f"서로 다른 지출 주 {MIN_WEEKLY_VOLATILITY_WEEKS}주 이상이 필요합니다.",
-            sample_count=len(weekly_amounts),
+            reason=f"At least {MIN_WEEKLY_VOLATILITY_WEEKS} observed calendar weeks are required.",
+            sample_count=len(week_starts),
         )
-    values = [float(amount) for amount in weekly_amounts.values()]
+    weekly_amounts: dict[date, Decimal] = {week_start: Decimal(0) for week_start in week_starts}
+    for transaction in transactions:
+        local_time = local_occurred_at(transaction, timezone)
+        week_start = local_time.date() - timedelta(days=local_time.weekday())
+        if week_start in weekly_amounts:
+            weekly_amounts[week_start] += transaction.amount
+    values = [float(weekly_amounts[week_start]) for week_start in week_starts]
     mean = sum(values) / len(values)
     if mean <= 0:
         return unavailable(
             feature_code=BehaviorFeatureCode.WEEKLY_EXPENSE_VOLATILITY,
             unit=BehaviorFeatureUnit.SCORE,
-            reason="주별 평균 지출이 0이라 변동성을 계산할 수 없습니다.",
-            sample_count=len(weekly_amounts),
+            reason="Average weekly spending is zero.",
+            sample_count=len(week_starts),
         )
     variance = sum((value - mean) ** 2 for value in values) / len(values)
-    value = round_score(min(sqrt(variance) / mean, 1.0))
+    raw_cv = sqrt(variance) / mean
+    normalized = min(raw_cv, 1.0)
     return available(
         feature_code=BehaviorFeatureCode.WEEKLY_EXPENSE_VOLATILITY,
-        raw_value=value,
-        normalized_score=value,
+        raw_value=round_score(raw_cv),
+        normalized_score=round_score(normalized),
         unit=BehaviorFeatureUnit.SCORE,
-        sample_count=len(weekly_amounts),
+        sample_count=len(week_starts),
         evidence=(
             (
-                f"{len(weekly_amounts)}주 주별 지출의 변동계수를 1.0 상한으로 "
-                f"{format_score(value)}로 계산했습니다."
+                f"Weekly spending CV from {len(week_starts)} calendar weeks is "
+                f"{format_score(raw_cv)}; normalized cap is {format_score(normalized)}."
             ),
         ),
     )
@@ -349,7 +384,7 @@ def outlier_ratio(transactions: tuple[NormalizedTransaction, ...]) -> BehaviorFe
         return unavailable(
             feature_code=BehaviorFeatureCode.OUTLIER_RATIO,
             unit=BehaviorFeatureUnit.COUNT_RATIO,
-            reason=f"이상치 판단에는 거래 {MIN_OUTLIER_TRANSACTIONS}건 이상이 필요합니다.",
+            reason=f"At least {MIN_OUTLIER_TRANSACTIONS} transactions are required.",
             sample_count=len(transactions),
         )
     amounts = [float(transaction.amount) for transaction in transactions]
@@ -372,11 +407,23 @@ def outlier_ratio(transactions: tuple[NormalizedTransaction, ...]) -> BehaviorFe
         sample_count=len(transactions),
         evidence=(
             (
-                f"거래 {len(transactions)}건 중 {outlier_count}건이 "
-                f"기준 금액 {format_score(threshold)}원을 초과했습니다."
+                f"Outlier transactions above {format_score(threshold)} amount: "
+                f"{outlier_count} of {len(transactions)}, {percent(value)}."
             ),
         ),
     )
+
+
+def iter_week_starts(context: BehaviorMetricsInput, timezone: ZoneInfo) -> tuple[date, ...]:
+    started_at = context.observation_started_at.astimezone(timezone)
+    ended_at = context.observation_ended_at.astimezone(timezone)
+    current = started_at.date() - timedelta(days=started_at.weekday())
+    last = ended_at.date() - timedelta(days=ended_at.weekday())
+    week_starts: list[date] = []
+    while current <= last:
+        week_starts.append(current)
+        current += timedelta(days=7)
+    return tuple(week_starts)
 
 
 def marked_transactions(
@@ -408,15 +455,22 @@ def saving_education_countable_transactions(
     )
 
 
-def is_weekend_social_spending(transaction: NormalizedTransaction) -> bool:
-    return transaction.occurred_at.weekday() >= 5 and (
+def is_weekend_social_spending(transaction: NormalizedTransaction, timezone: ZoneInfo) -> bool:
+    local_time = local_occurred_at(transaction, timezone)
+    return local_time.weekday() >= 5 and (
         transaction.behavior_group == BehaviorGroup.RELATIONSHIP
-        or normalized_code(transaction) in SOCIAL_CATEGORY_CODES
+        or normalized_code(transaction) == "GATHERING"
+        or transaction.is_shared_expense is True
     )
 
 
-def is_night_spending(transaction: NormalizedTransaction) -> bool:
-    return transaction.occurred_at.hour >= NIGHT_START_HOUR or transaction.occurred_at.hour < NIGHT_END_HOUR
+def is_night_spending(transaction: NormalizedTransaction, timezone: ZoneInfo) -> bool:
+    local_time = local_occurred_at(transaction, timezone)
+    return local_time.hour >= NIGHT_START_HOUR or local_time.hour < NIGHT_END_HOUR
+
+
+def local_occurred_at(transaction: NormalizedTransaction, timezone: ZoneInfo) -> datetime:
+    return transaction.occurred_at.astimezone(timezone)
 
 
 def is_travel_experience_spending(transaction: NormalizedTransaction) -> bool:

@@ -47,12 +47,14 @@ AN Phase 2 output schema version is `behavior-features-v1`. It consumes preproce
 
 - Amount ratios use amount denominators; merchant and outlier ratios use count denominators.
 - `is_shared_expense`, `is_planned`, and `is_recurring` rows with `NULL` markers are excluded from each marker-specific denominator.
-- Night spending is `18:00 <= occurred_at.hour` or `occurred_at.hour < 06:00` after AN Phase 1 timezone normalization.
-- Weekend spending uses Saturday and Sunday based on normalized datetimes.
-- `NEW_MERCHANT_RATIO` counts the first occurrence of each `merchant_key` in deterministic `(occurred_at, transaction_id)` order.
-- `REPEAT_MERCHANT_RATIO` counts transactions whose `merchant_key` appears more than once in the feature sample.
-- `WEEKLY_EXPENSE_VOLATILITY` uses weekly total coefficient of variation and caps the score at `1.0`.
+- Night spending is `18:00 <= local occurred_at.hour` or `local occurred_at.hour < 06:00` after converting UTC-normalized timestamps to the analysis timezone.
+- Weekend spending uses Saturday and Sunday in the analysis timezone. MVP timezone is `Asia/Seoul`.
+- `WEEKEND_SOCIAL_SPENDING_RATIO` uses strong social signals only: `behavior_group=RELATIONSHIP`, `category_code=GATHERING`, or `is_shared_expense=true`.
+- `NEW_MERCHANT_RATIO` is unavailable until a merchant baseline before the analysis period exists.
+- `REPEAT_MERCHANT_RATIO` counts visits after the first occurrence within the analysis window.
+- `WEEKLY_EXPENSE_VOLATILITY` uses observation start/end context, includes calendar weeks with no spending as zero, stores raw CV in `raw_value`, and caps `normalized_score` at `1.0`.
 - `OUTLIER_RATIO` uses a median/MAD threshold, with a median-based fallback when MAD is zero.
+- Feature output records `behavior-policy-v1` and `category-map-v2` alongside `behavior-features-v1`.
 
 ## Preprocessing Inputs
 

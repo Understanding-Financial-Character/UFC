@@ -7,6 +7,8 @@ from decimal import Decimal
 
 ANALYSIS_INPUT_SCHEMA_VERSION = "analysis-input-v1"
 BEHAVIOR_FEATURE_SCHEMA_VERSION = "behavior-features-v1"
+BEHAVIOR_FEATURE_POLICY_VERSION = "behavior-policy-v1"
+CATEGORY_MAPPING_VERSION = "category-map-v2"
 
 
 class GroupPurposeType(str, enum.Enum):
@@ -205,6 +207,17 @@ class BehaviorFeatureResult:
 
 
 @dataclass(frozen=True)
+class BehaviorMetricsInput:
+    transactions: tuple[NormalizedTransaction, ...]
+    observation_started_at: datetime
+    observation_ended_at: datetime
+    timezone: str = "Asia/Seoul"
+
+
+@dataclass(frozen=True)
 class BehaviorMetricsResult:
     schema_version: str
+    policy_version: str
+    category_mapping_version: str
+    analysis_timezone: str
     features: tuple[BehaviorFeatureResult, ...]

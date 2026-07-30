@@ -30,7 +30,10 @@ Behavior feature output is implemented by AN Phase 2. Axis scoring, final consum
       "sampleCount": 18,
       "evidence": ["공동지출 42000원이 표본 금액 100000원의 42.0%입니다."]
     }
-  ]
+  ],
+  "policyVersion": "behavior-policy-v1",
+  "categoryMappingVersion": "category-map-v2",
+  "analysisTimezone": "Asia/Seoul"
 }
 ```
 
@@ -64,6 +67,12 @@ Implemented AN Phase 2 feature codes:
 - `OUTLIER_RATIO`
 
 AN Phase 2 consumes only `NormalizedTransaction` rows from preprocessing. It defensively ignores non-`WITHDRAWAL` transaction types if they are passed by mistake.
+
+Calendar features use the analysis timezone, fixed to `Asia/Seoul` for the MVP. `NormalizedTransaction.occurred_at` remains UTC-normalized from AN Phase 1, but weekend and night predicates convert it to the analysis timezone before reading weekday or hour.
+
+`NEW_MERCHANT_RATIO` is `UNAVAILABLE` in AN Phase 2 because true new-merchant status requires a merchant baseline before the analysis window. `REPEAT_MERCHANT_RATIO` is calculated within the current window as visits after the first occurrence, so first visits and repeat visits are not double-counted.
+
+`WEEKLY_EXPENSE_VOLATILITY` requires observation start/end context, includes calendar weeks with zero spending, records raw coefficient of variation in `rawValue`, and caps `normalizedScore` at `1.0`.
 
 ## Axis Scores
 

@@ -1,7 +1,7 @@
 # AN Phase 2 - Behavior Metrics Verification
 
 ## Verified Commit
-`ebed946`
+Pending PR #15 review-fix commit.
 ## Verified At
 2026-07-30
 ## Environment
@@ -18,8 +18,8 @@ Docker Compose dev backend on PostgreSQL 16.
 ## Results
 - Compose config: passed.
 - Alembic upgrade head: passed.
-- AN Phase 2 behavior metric tests: 8 passed.
-- Full backend tests: 83 passed, 1 upstream deprecation warning from FastAPI/Starlette TestClient.
+- AN Phase 2 behavior metric tests: 10 passed.
+- Full backend tests: 85 passed, 1 upstream deprecation warning from FastAPI/Starlette TestClient.
 - Ruff: passed.
 - CI-style committed diff whitespace check: passed.
 - Diff whitespace check: passed.

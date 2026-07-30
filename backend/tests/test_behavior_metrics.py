@@ -12,6 +12,7 @@ from app.analysis.contracts import (
     BehaviorFeatureStatus,
     BehaviorFeatureUnit,
     BehaviorGroup,
+    BehaviorMetricsInput,
     NormalizedTransaction,
 )
 
@@ -48,8 +49,18 @@ def tx(
 
 def features_by_code(
     transactions: tuple[NormalizedTransaction, ...],
+    *,
+    observation_started_at: datetime | None = None,
+    observation_ended_at: datetime | None = None,
 ) -> dict[BehaviorFeatureCode, object]:
-    result = calculate_behavior_metrics(transactions)
+    metrics_input: BehaviorMetricsInput | tuple[NormalizedTransaction, ...] = transactions
+    if observation_started_at is not None and observation_ended_at is not None:
+        metrics_input = BehaviorMetricsInput(
+            transactions=transactions,
+            observation_started_at=observation_started_at,
+            observation_ended_at=observation_ended_at,
+        )
+    result = calculate_behavior_metrics(metrics_input)
     return {feature.feature_code: feature for feature in result.features}
 
 
@@ -102,7 +113,7 @@ def test_feature_engine_calculates_all_core_features() -> None:
         tx(
             5,
             amount="500",
-            occurred_at=datetime(2026, 7, 20, 10, 0, tzinfo=UTC),
+            occurred_at=datetime(2026, 7, 19, 10, 0, tzinfo=UTC),
             category_code="GIFT_ANNIVERSARY",
             behavior_group=BehaviorGroup.RELATIONSHIP,
             merchant_key="gift-shop",
@@ -116,16 +127,21 @@ def test_feature_engine_calculates_all_core_features() -> None:
     features = {feature.feature_code: feature for feature in result.features}
 
     assert result.schema_version == BEHAVIOR_FEATURE_SCHEMA_VERSION
+    assert result.policy_version == "behavior-policy-v1"
+    assert result.category_mapping_version == "category-map-v2"
+    assert result.analysis_timezone == "Asia/Seoul"
     assert features[BehaviorFeatureCode.SHARED_EXPENSE_RATIO].raw_value == 0.2727
-    assert features[BehaviorFeatureCode.WEEKEND_SOCIAL_SPENDING_RATIO].raw_value == 0.0667
-    assert features[BehaviorFeatureCode.NIGHT_SPENDING_RATIO].raw_value == 0.3333
+    assert features[BehaviorFeatureCode.WEEKEND_SOCIAL_SPENDING_RATIO].raw_value == 0.4
+    assert features[BehaviorFeatureCode.NIGHT_SPENDING_RATIO].raw_value == 0.5333
     assert features[BehaviorFeatureCode.TRAVEL_EXPERIENCE_RATIO].raw_value == 0.1333
     assert features[BehaviorFeatureCode.PRACTICAL_SPENDING_RATIO].raw_value == 0.2
     assert features[BehaviorFeatureCode.CATEGORY_CONCENTRATION].raw_value == 0.3333
     assert features[BehaviorFeatureCode.CATEGORY_DIVERSITY_SCORE].status == (
         BehaviorFeatureStatus.AVAILABLE
     )
-    assert features[BehaviorFeatureCode.NEW_MERCHANT_RATIO].raw_value == 1.0
+    assert features[BehaviorFeatureCode.NEW_MERCHANT_RATIO].status == (
+        BehaviorFeatureStatus.UNAVAILABLE
+    )
     assert features[BehaviorFeatureCode.REPEAT_MERCHANT_RATIO].raw_value == 0.0
     assert features[BehaviorFeatureCode.EXPERIENCE_SPENDING_RATIO].raw_value == 0.1333
     assert features[BehaviorFeatureCode.SAVING_EDUCATION_RATIO].raw_value == 0.2667
@@ -181,7 +197,7 @@ def test_zero_and_one_transaction_inputs_return_unavailable_when_sample_is_missi
     )
 
 
-def test_repeat_and_new_merchant_ratios_are_deterministic() -> None:
+def test_repeat_merchant_uses_visits_after_first_and_new_requires_baseline() -> None:
     transactions = (
         tx(3, occurred_at=datetime(2026, 7, 3, tzinfo=UTC), merchant_key="new"),
         tx(1, occurred_at=datetime(2026, 7, 1, tzinfo=UTC), merchant_key="same"),
@@ -193,47 +209,96 @@ def test_repeat_and_new_merchant_ratios_are_deterministic() -> None:
     second = calculate_behavior_metrics(tuple(reversed(transactions)))
     features = {feature.feature_code: feature for feature in first.features}
 
-    assert features[BehaviorFeatureCode.NEW_MERCHANT_RATIO].raw_value == 0.6667
-    assert features[BehaviorFeatureCode.REPEAT_MERCHANT_RATIO].raw_value == 0.6667
+    assert features[BehaviorFeatureCode.NEW_MERCHANT_RATIO].status == (
+        BehaviorFeatureStatus.UNAVAILABLE
+    )
+    assert features[BehaviorFeatureCode.REPEAT_MERCHANT_RATIO].raw_value == 0.3333
     assert first == second
 
 
-def test_weekend_and_night_boundaries() -> None:
+def test_weekend_and_night_use_analysis_timezone_boundaries() -> None:
     features = features_by_code(
         (
             tx(
                 1,
                 amount="100",
-                occurred_at=datetime(2026, 7, 3, 17, 59, tzinfo=UTC),
+                occurred_at=datetime(2026, 7, 3, 14, 59, tzinfo=UTC),
                 category_code="GATHERING",
                 behavior_group=BehaviorGroup.RELATIONSHIP,
             ),
             tx(
                 2,
                 amount="100",
-                occurred_at=datetime(2026, 7, 4, 18, 0, tzinfo=UTC),
+                occurred_at=datetime(2026, 7, 3, 15, 0, tzinfo=UTC),
                 category_code="GATHERING",
                 behavior_group=BehaviorGroup.RELATIONSHIP,
             ),
             tx(
                 3,
                 amount="100",
-                occurred_at=datetime(2026, 7, 5, 5, 59, tzinfo=UTC),
+                occurred_at=datetime(2026, 7, 3, 20, 59, tzinfo=UTC),
                 category_code="GATHERING",
                 behavior_group=BehaviorGroup.RELATIONSHIP,
             ),
             tx(
                 4,
                 amount="100",
-                occurred_at=datetime(2026, 7, 6, 6, 0, tzinfo=UTC),
+                occurred_at=datetime(2026, 7, 3, 21, 0, tzinfo=UTC),
+                category_code="GATHERING",
+                behavior_group=BehaviorGroup.RELATIONSHIP,
+            ),
+            tx(
+                5,
+                amount="100",
+                occurred_at=datetime(2026, 7, 4, 8, 59, tzinfo=UTC),
+                category_code="GATHERING",
+                behavior_group=BehaviorGroup.RELATIONSHIP,
+            ),
+            tx(
+                6,
+                amount="100",
+                occurred_at=datetime(2026, 7, 4, 9, 0, tzinfo=UTC),
                 category_code="GATHERING",
                 behavior_group=BehaviorGroup.RELATIONSHIP,
             ),
         )
     )
 
-    assert features[BehaviorFeatureCode.WEEKEND_SOCIAL_SPENDING_RATIO].raw_value == 0.5
-    assert features[BehaviorFeatureCode.NIGHT_SPENDING_RATIO].raw_value == 0.5
+    assert features[BehaviorFeatureCode.WEEKEND_SOCIAL_SPENDING_RATIO].raw_value == 0.8333
+    assert features[BehaviorFeatureCode.NIGHT_SPENDING_RATIO].raw_value == 0.6667
+
+
+def test_weekend_social_spending_uses_strong_social_signals() -> None:
+    features = features_by_code(
+        (
+            tx(
+                1,
+                amount="100",
+                occurred_at=datetime(2026, 7, 3, 15, 0, tzinfo=UTC),
+                category_code="FOOD",
+                behavior_group=BehaviorGroup.PRACTICAL,
+                is_shared_expense=False,
+            ),
+            tx(
+                2,
+                amount="100",
+                occurred_at=datetime(2026, 7, 3, 15, 0, tzinfo=UTC),
+                category_code="GATHERING",
+                behavior_group=BehaviorGroup.PRACTICAL,
+                is_shared_expense=False,
+            ),
+            tx(
+                3,
+                amount="100",
+                occurred_at=datetime(2026, 7, 3, 15, 0, tzinfo=UTC),
+                category_code="MART",
+                behavior_group=BehaviorGroup.PRACTICAL,
+                is_shared_expense=True,
+            ),
+        )
+    )
+
+    assert features[BehaviorFeatureCode.WEEKEND_SOCIAL_SPENDING_RATIO].raw_value == 0.6667
 
 
 def test_category_concentration_and_diversity_distinguish_distributions() -> None:
@@ -271,6 +336,26 @@ def test_outlier_ratio_detects_large_transaction() -> None:
     )
 
     assert features[BehaviorFeatureCode.OUTLIER_RATIO].raw_value == 0.2
+
+
+def test_weekly_volatility_includes_zero_spend_weeks_and_separates_raw_score() -> None:
+    features = features_by_code(
+        (
+            tx(
+                1,
+                amount="100000",
+                occurred_at=datetime(2026, 7, 6, 1, 0, tzinfo=UTC),
+            ),
+        ),
+        observation_started_at=datetime(2026, 7, 5, 15, 0, tzinfo=UTC),
+        observation_ended_at=datetime(2026, 8, 2, 14, 59, tzinfo=UTC),
+    )
+
+    volatility = features[BehaviorFeatureCode.WEEKLY_EXPENSE_VOLATILITY]
+
+    assert volatility.sample_count == 4
+    assert volatility.raw_value == 1.7321
+    assert volatility.normalized_score == 1.0
 
 
 def test_non_withdrawal_transactions_are_not_used_by_feature_engine() -> None:
