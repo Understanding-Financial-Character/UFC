@@ -1,20 +1,13 @@
-const REFRESH_TOKEN_KEY = "ufc.refresh_token";
-
-const getStorage = (): Storage | null => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-  return window.localStorage;
-};
+let refreshTokenMemory: string | null = null;
 
 export const refreshTokenStorage = {
   get(): string | null {
-    return getStorage()?.getItem(REFRESH_TOKEN_KEY) ?? null;
+    return refreshTokenMemory;
   },
   set(refreshToken: string): void {
-    getStorage()?.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    refreshTokenMemory = refreshToken;
   },
   clear(): void {
-    getStorage()?.removeItem(REFRESH_TOKEN_KEY);
+    refreshTokenMemory = null;
   },
 };

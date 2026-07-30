@@ -28,7 +28,7 @@ Consumes the BE Phase 3 auth and `/me` API contracts in `docs/contracts/api-cont
 None.
 
 ## Security Considerations
-Access tokens are held only in Redux in-memory session state. Refresh token plaintext is never stored in Redux and is isolated behind `refreshTokenStorage` for browser persistence needed by refresh rotation. Passwords remain local form values only and are submitted directly to the auth API.
+Access tokens are held only in Redux in-memory session state. Refresh token plaintext is never stored in Redux or browser persistent storage and is isolated behind in-memory `refreshTokenStorage` for same-page refresh rotation. Passwords remain local form values only and are submitted directly to the auth API.
 
 ## Implementation Tasks
 - Configure Redux Toolkit store and typed hooks.

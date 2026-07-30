@@ -35,7 +35,7 @@ Server state remains owned by FastAPI and PostgreSQL. Server data fetched by Rea
 ## Authentication State
 
 - Access tokens are kept in Redux in-memory auth state and attached to API calls by RTK Query `prepareHeaders`.
-- Refresh token plaintext is not stored in Redux. FE Phase 1 isolates it behind `refreshTokenStorage` for MVP browser session continuity.
+- Refresh token plaintext is not stored in Redux or browser persistent storage. FE Phase 1 isolates it behind in-memory `refreshTokenStorage`; page reloads require login again unless the backend later adopts HttpOnly cookies.
 - Passwords and form field contents remain local to React forms and are not copied into Redux.
 - On `401 AUTHENTICATION_REQUIRED`, RTK Query performs one refresh-token rotation attempt, retries the original request on success, and clears local session state on failure.
 - `403 PERMISSION_DENIED` is represented by the shared forbidden screen and role guard.

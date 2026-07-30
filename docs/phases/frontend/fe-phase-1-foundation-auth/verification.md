@@ -41,12 +41,12 @@ No schema changes were made. Alembic upgrade to head passed in Docker Compose.
 
 ## Security Evidence
 - Passwords are local form values and are not stored in Redux.
-- Refresh token plaintext is excluded from Redux state and handled only through `refreshTokenStorage`.
+- Refresh token plaintext is excluded from Redux state and browser persistent storage; it is handled only through in-memory `refreshTokenStorage`.
 - Access token is stored in Redux in-memory state for Authorization header preparation.
 - 401 refresh retry clears local session state and refresh token storage when refresh fails.
 
 ## Known Limitations
-- Browser persistence for refresh token uses `localStorage` for MVP continuity; this should be revisited if backend moves refresh tokens to HttpOnly cookies.
+- Refresh token persistence is intentionally in-memory only; page reloads require login again until the backend supports an HttpOnly-cookie refresh strategy.
 - No real browser E2E test was added in this phase.
 - npm audit reported dependency vulnerabilities; no automatic audit fix was applied because it may alter versions beyond phase scope.
 - Backend ruff in Docker Compose dev mode is blocked on this Windows bind mount by `EXE002`; tracked Git modes checked for sampled files are `100644`.
