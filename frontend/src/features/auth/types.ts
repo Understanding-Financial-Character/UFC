@@ -47,3 +47,44 @@ export interface ApiErrorPayload {
     traceId?: string | null;
   };
 }
+
+export type GroupStatus = "DRAFT" | "READY_FOR_ANALYSIS";
+
+export interface GroupMemberResponse {
+  schema_version: string;
+  group_id: string;
+  member_id: string;
+  display_name: string;
+  mbti: string;
+  created_at: string;
+}
+
+export interface GroupResponse {
+  schema_version: string;
+  group_id: string;
+  name: string;
+  relationship_type: "COUPLE" | "FRIENDS" | "FAMILY" | "OTHER";
+  status: GroupStatus;
+  member_count: number;
+  can_analyze: boolean;
+  created_at: string;
+  members: GroupMemberResponse[];
+}
+
+export interface CategoryResponse {
+  schema_version: string;
+  category_id: string;
+  code: string;
+  name: string;
+  behavior_group: "PRACTICAL" | "EXPERIENCE" | "RELATIONSHIP" | "REGULAR" | "SAVINGS" | "OTHER";
+  display_order: number;
+  is_active: boolean;
+}
+
+export interface MockScenarioResponse {
+  schema_version: string;
+  scenario_id: string;
+  name: string;
+  description: string;
+  transaction_count: number;
+}

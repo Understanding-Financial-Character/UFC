@@ -98,6 +98,12 @@ export function LoginPage() {
           <p className="login-signup-link">
             계정이 없으신가요? <Link to="/signup">회원가입</Link>
           </p>
+
+          <div className="login-demo-account" aria-label="로컬 테스트 계정">
+            <span>로컬 테스트 계정</span>
+            <code>demo-user@example.com</code>
+            <code>correct-password</code>
+          </div>
         </section>
 
         <footer className="login-status" aria-label="시스템 상태">

@@ -406,6 +406,456 @@ p {
   font-size: 0.9rem;
 }
 
+.login-demo-account {
+  background: #f3f7fb;
+  border: 1px solid #d6e2ee;
+  border-radius: 6px;
+  color: #404751;
+  display: grid;
+  font-size: 0.9rem;
+  gap: 6px;
+  margin-top: 22px;
+  padding: 14px;
+}
+
+.login-demo-account span {
+  font-weight: 800;
+}
+
+.login-demo-account code {
+  color: #005996;
+  font-weight: 800;
+}
+
+.landing-page {
+  background: #f9f9fc;
+  color: #1a1c1e;
+  min-height: 100vh;
+  padding: 96px 48px 120px;
+}
+
+.landing-topbar {
+  align-items: center;
+  backdrop-filter: blur(16px);
+  background: rgb(249 249 252 / 84%);
+  display: flex;
+  gap: 24px;
+  height: 64px;
+  justify-content: space-between;
+  left: 0;
+  padding: 0 48px;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 20;
+}
+
+.landing-topbar-brand {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+}
+
+.landing-topbar-brand a {
+  color: #005996;
+  font-size: 1.35rem;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.icon-button {
+  background: transparent;
+  border-radius: 999px;
+  color: #005996;
+  font-size: 2rem;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  width: 44px;
+}
+
+.icon-button:hover {
+  background: #e8e8ea;
+}
+
+.landing-nav {
+  display: flex;
+  gap: 30px;
+}
+
+.landing-nav a,
+.text-link {
+  color: #404751;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.landing-nav a:hover,
+.text-link:hover {
+  color: #005996;
+}
+
+.landing-session {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.landing-session span {
+  color: #404751;
+  font-weight: 800;
+}
+
+.landing-session button {
+  background: #0872bd;
+}
+
+.landing-hero {
+  align-items: end;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin: 0 auto 40px;
+  max-width: 1440px;
+}
+
+.landing-badge {
+  background: #c8a91d;
+  border-radius: 999px;
+  color: #4c3f00;
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 900;
+  margin-bottom: 12px;
+  padding: 7px 12px;
+}
+
+.landing-hero h1 {
+  font-size: 3.2rem;
+  line-height: 1.06;
+  margin: 0;
+}
+
+.landing-hero strong {
+  color: #005996;
+}
+
+.landing-summary-grid {
+  display: flex;
+  gap: 10px;
+}
+
+.summary-card {
+  align-items: center;
+  background: #f3f3f6;
+  border: 1px solid #c0c7d3;
+  border-radius: 8px;
+  display: grid;
+  justify-items: center;
+  min-width: 112px;
+  padding: 16px;
+}
+
+.summary-card span {
+  color: #404751;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.summary-card strong {
+  color: #005996;
+  font-size: 1.35rem;
+}
+
+.meeting-grid {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 auto;
+  max-width: 1440px;
+}
+
+.meeting-card-ui {
+  background: #ffffff;
+  border: 1px solid #c0c7d3;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgb(0 0 0 / 4%);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 22px;
+  transition:
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.meeting-card-ui:hover {
+  box-shadow: 0 14px 30px rgb(8 114 189 / 11%);
+  transform: translateY(-3px);
+}
+
+.meeting-card-ui--highlighted {
+  border-left: 4px solid #0872bd;
+}
+
+.meeting-card-header,
+.meeting-title-row,
+.progress-area div,
+.meeting-card-ui footer {
+  align-items: center;
+  display: flex;
+}
+
+.meeting-card-header,
+.progress-area div,
+.meeting-card-ui footer {
+  justify-content: space-between;
+}
+
+.meeting-title-row {
+  gap: 12px;
+  min-width: 0;
+}
+
+.meeting-icon {
+  align-items: center;
+  background: #d1e4ff;
+  border-radius: 999px;
+  color: #00497d;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-weight: 900;
+  height: 48px;
+  justify-content: center;
+  width: 48px;
+}
+
+.meeting-card-ui h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.meeting-card-ui p {
+  color: #717882;
+  font-size: 0.85rem;
+  margin: 4px 0 0;
+}
+
+.mbti-chip {
+  background: #ffdea1;
+  border-radius: 5px;
+  color: #6f5100;
+  font-size: 0.75rem;
+  font-weight: 900;
+  padding: 6px 8px;
+  white-space: nowrap;
+}
+
+.progress-area {
+  display: grid;
+  gap: 9px;
+}
+
+.progress-area span,
+.meeting-card-ui footer span {
+  color: #717882;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.progress-area strong {
+  color: #005996;
+}
+
+.progress-track {
+  background: #e8e8ea;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.progress-track i {
+  background: #0872bd;
+  border-radius: inherit;
+  display: block;
+  height: 100%;
+}
+
+.meeting-card-ui footer {
+  border-top: 1px solid #c0c7d3;
+  padding-top: 12px;
+}
+
+.meeting-card-ui footer div {
+  display: grid;
+  gap: 3px;
+}
+
+.meeting-card-ui footer strong {
+  color: #1a1c1e;
+  font-size: 0.95rem;
+}
+
+.meeting-card-ui footer button {
+  background: transparent;
+  color: #005996;
+  font-size: 1.8rem;
+  min-height: 36px;
+  padding: 0;
+  width: 36px;
+}
+
+.landing-insights {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr 1fr;
+  margin: 40px auto 0;
+  max-width: 1440px;
+}
+
+.insight-panel,
+.mock-panel {
+  border-radius: 8px;
+  padding: 28px;
+}
+
+.insight-panel {
+  background: #eeeef0;
+  border: 1px solid #c0c7d3;
+  display: grid;
+  gap: 22px;
+  grid-template-columns: 1fr auto;
+}
+
+.section-title {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  grid-column: 1 / -1;
+}
+
+.section-title span {
+  color: #0872bd;
+}
+
+.section-title h2,
+.mock-panel h2 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.insight-panel p,
+.mock-panel p {
+  color: #404751;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.insight-score {
+  align-items: center;
+  border: 4px solid #0872bd;
+  border-radius: 999px;
+  color: #005996;
+  display: flex;
+  font-size: 1.15rem;
+  font-weight: 900;
+  height: 96px;
+  justify-content: center;
+  width: 96px;
+}
+
+.mock-panel {
+  background: #0872bd;
+  color: #ffffff;
+  display: grid;
+  gap: 18px;
+}
+
+.mock-panel p {
+  color: rgb(255 255 255 / 82%);
+}
+
+.demo-login-card {
+  background: rgb(255 255 255 / 12%);
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.demo-login-card span {
+  font-weight: 900;
+}
+
+.demo-login-card code {
+  background: rgb(255 255 255 / 14%);
+  border-radius: 5px;
+  color: #ffffff;
+  padding: 6px 8px;
+}
+
+.demo-login-card a,
+.mock-panel a {
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.landing-cta {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+  margin-top: 36px;
+}
+
+.floating-action {
+  align-items: center;
+  background: #c4271d;
+  border-radius: 999px;
+  bottom: 92px;
+  box-shadow: 0 18px 36px rgb(196 39 29 / 28%);
+  color: #ffffff;
+  display: flex;
+  font-size: 2rem;
+  font-weight: 700;
+  height: 56px;
+  justify-content: center;
+  position: fixed;
+  right: 24px;
+  text-decoration: none;
+  width: 56px;
+  z-index: 18;
+}
+
+.mobile-nav {
+  background: #ffffff;
+  border-radius: 16px 16px 0 0;
+  bottom: 0;
+  box-shadow: 0 -4px 20px rgb(0 0 0 / 6%);
+  display: none;
+  justify-content: space-around;
+  left: 0;
+  padding: 12px 18px;
+  position: fixed;
+  right: 0;
+  z-index: 20;
+}
+
+.mobile-nav a {
+  color: #717882;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+.mobile-nav a.active {
+  background: #0872bd;
+  border-radius: 999px;
+  color: #edf3ff;
+}
+
 .topbar {
   align-items: center;
   display: flex;
@@ -532,6 +982,58 @@ p {
     flex-wrap: wrap;
     gap: 18px;
     margin-top: 56px;
+  }
+
+  .landing-page {
+    padding: 88px 18px 120px;
+  }
+
+  .landing-topbar {
+    padding: 0 16px;
+  }
+
+  .landing-nav {
+    display: none;
+  }
+
+  .landing-session {
+    gap: 8px;
+  }
+
+  .landing-session .button-link {
+    display: none;
+  }
+
+  .landing-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .landing-hero h1 {
+    font-size: 2.4rem;
+  }
+
+  .landing-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .meeting-grid,
+  .landing-insights {
+    grid-template-columns: 1fr;
+  }
+
+  .insight-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .insight-score {
+    height: 84px;
+    width: 84px;
+  }
+
+  .mobile-nav {
+    display: flex;
   }
 
   .topbar,

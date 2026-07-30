@@ -10,10 +10,13 @@ import type { RootState } from "../app/store";
 import { sessionCleared, tokenReceived, userReceived } from "../features/auth/authSlice";
 import { refreshTokenStorage } from "../features/auth/tokenStorage";
 import type {
+  CategoryResponse,
+  GroupResponse,
   LoginRequest,
   LogoutRequest,
   LogoutResponse,
   MeResponse,
+  MockScenarioResponse,
   RefreshRequest,
   SignupRequest,
   TokenResponse,
@@ -93,7 +96,7 @@ const baseQueryWithRefresh: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQu
 export const baseApi = createApi({
   reducerPath: "baseApi",
   baseQuery: baseQueryWithRefresh,
-  tagTypes: ["Session"],
+  tagTypes: ["Categories", "Groups", "MockScenarios", "Session"],
   endpoints: (builder) => ({
     signup: builder.mutation<TokenResponse, SignupRequest>({
       query: (body) => ({ url: "/auth/signup", method: "POST", body }),
@@ -140,10 +143,25 @@ export const baseApi = createApi({
       },
       providesTags: ["Session"],
     }),
+    listGroups: builder.query<GroupResponse[], void>({
+      query: () => "/groups",
+      providesTags: ["Groups"],
+    }),
+    listCategories: builder.query<CategoryResponse[], void>({
+      query: () => "/categories",
+      providesTags: ["Categories"],
+    }),
+    listMockScenarios: builder.query<MockScenarioResponse[], void>({
+      query: () => "/mock-scenarios",
+      providesTags: ["MockScenarios"],
+    }),
   }),
 });
 
 export const {
+  useListCategoriesQuery,
+  useListGroupsQuery,
+  useListMockScenariosQuery,
   useGetMeQuery,
   useLazyGetMeQuery,
   useLoginMutation,

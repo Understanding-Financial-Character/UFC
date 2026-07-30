@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter } from "react-router-dom";
 
 import { ProtectedRoute } from "../../components/guards/ProtectedRoute";
 import { RoleGuard } from "../../components/guards/RoleGuard";
@@ -11,7 +11,7 @@ import { SignupPage } from "../../pages/SignupPage";
 export const router = createBrowserRouter([
   {
     path: "/",
-    element: <Navigate to="/app" replace />,
+    element: <HomePage />,
   },
   {
     path: "/login",
