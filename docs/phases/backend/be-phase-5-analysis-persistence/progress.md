@@ -6,9 +6,11 @@ VERIFYING
 - SQLAlchemy models for `analysis_runs`, `behavior_metrics`, `consumption_mbti_results`, and `ai_reports`.
 - Execution `status` and result-quality `result_status` are separated on `analysis_runs`.
 - `analysis_runs.result_status` is nullable until completion and is set through repository completion flow.
+- `FAILED`, `PENDING`, and `RUNNING` runs must keep `result_status` null at DB constraint level.
 - `result_status` values are `STANDARD`, `PROVISIONAL`, and `INSUFFICIENT_DATA`.
 - `provisional_reasons` are stored as structured JSON and validated against analysis provisional reason values.
 - `behavior_metrics` stores AN Phase 2 `BehaviorFeatureResult` core fields: `feature_code`, `status`, `raw_value`, `normalized_score`, `unit`, and `sample_count`.
+- `UNAVAILABLE` behavior features must not store `raw_value` or `normalized_score`; `AVAILABLE` behavior features must not store `unavailable_reason`.
 - `consumption_mbti_results.mbti_type` is nullable.
 - `consumption_mbti_results.result_status` duplicates the owning run result status so DB constraints reject forced MBTI for `INSUFFICIENT_DATA`.
 - `behavior_metrics.metric_metadata.axisContributions` stores axis-level weighted contribution data.
@@ -35,3 +37,5 @@ Not assigned.
 None.
 ## Handover Notes
 Do not store analysis execution status on `groups`. BE Phase 6 should orchestrate run creation and status transitions using these persistence models.
+
+BE Phase 6 must complete the run and save result rows in one DB transaction without an intermediate commit, because MBTI result persistence currently requires the owning run to be `COMPLETED` so it can copy the finalized `result_status`.

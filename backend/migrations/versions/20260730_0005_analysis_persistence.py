@@ -133,8 +133,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             "((status = 'COMPLETED' AND result_status IS NOT NULL) "
-            "OR (status IN ('PENDING', 'RUNNING') AND result_status IS NULL) "
-            "OR status = 'FAILED')",
+            "OR (status IN ('PENDING', 'RUNNING', 'FAILED') AND result_status IS NULL))",
             name="ck_analysis_runs_result_status_lifecycle",
         ),
         sa.CheckConstraint(
@@ -176,7 +175,9 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             "((status = 'AVAILABLE' AND raw_value IS NOT NULL AND normalized_score IS NOT NULL) "
-            "OR (status = 'UNAVAILABLE' AND unavailable_reason IS NOT NULL))",
+            "AND unavailable_reason IS NULL) "
+            "OR (status = 'UNAVAILABLE' AND raw_value IS NULL AND normalized_score IS NULL "
+            "AND unavailable_reason IS NOT NULL)",
             name="ck_behavior_metrics_status_payload",
         ),
         sa.CheckConstraint(

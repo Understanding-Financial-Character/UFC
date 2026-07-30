@@ -316,8 +316,13 @@ class AnalysisResultRepository:
             raw_value is None or normalized_score is None
         ):
             raise ValueError("AVAILABLE behavior features require raw_value and normalized_score.")
-        if status == BehaviorFeatureStatus.UNAVAILABLE and not unavailable_reason:
-            raise ValueError("UNAVAILABLE behavior features require unavailable_reason.")
+        if status == BehaviorFeatureStatus.AVAILABLE and unavailable_reason is not None:
+            raise ValueError("AVAILABLE behavior features must not have unavailable_reason.")
+        if status == BehaviorFeatureStatus.UNAVAILABLE:
+            if raw_value is not None or normalized_score is not None:
+                raise ValueError("UNAVAILABLE behavior features must not have values.")
+            if not unavailable_reason:
+                raise ValueError("UNAVAILABLE behavior features require unavailable_reason.")
 
     @staticmethod
     def _validate_ai_report_payload(

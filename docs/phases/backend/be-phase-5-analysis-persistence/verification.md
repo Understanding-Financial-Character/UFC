@@ -5,7 +5,7 @@
 
 `c4d6ee4` fix: align analysis persistence contracts
 ## Verified At
-2026-07-30 12:19:08 KST
+2026-07-30 13:20:58 KST
 ## Environment
 macOS local development environment with Docker Compose.
 ## Commands
@@ -22,8 +22,8 @@ macOS local development environment with Docker Compose.
 - `git diff --check`
 ## Results
 - Compose config passed.
-- Analysis persistence tests passed: 8 tests.
-- Full backend test suite passed: 110 tests.
+- Analysis persistence tests passed: 11 tests.
+- Full backend test suite passed: 113 tests.
 - Backend Ruff passed.
 - Alembic upgrade to `20260730_0005` passed on PostgreSQL.
 - Local PostgreSQL volume was reset because an earlier unmerged version of revision `20260730_0005` had already been applied before review hardening.
@@ -36,7 +36,9 @@ Not applicable. No API route was added in this phase.
 ## DB Evidence
 - `analysis_runs` stores execution `status` separately from result `result_status`.
 - `analysis_runs.result_status` is nullable for `PENDING` and `RUNNING` and required for `COMPLETED`.
+- `analysis_runs.result_status` is forced null for `FAILED`.
 - `behavior_metrics` stores AN Phase 2 core feature fields and `metric_metadata.axisContributions`.
+- `UNAVAILABLE` behavior metrics cannot store `raw_value` or `normalized_score`; `AVAILABLE` metrics cannot store `unavailable_reason`.
 - `behavior_metrics.metric_metadata` is PostgreSQL JSONB in the migrated database.
 - `consumption_mbti_results.mbti_type` is nullable and DB/repository validation prevents forced MBTI for `INSUFFICIENT_DATA`.
 - `ai_reports` records `COMPLETED`, `FALLBACK_COMPLETED`, and `FAILED` status payloads with fallback consistency checks.

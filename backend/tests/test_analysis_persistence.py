@@ -272,6 +272,43 @@ def test_repository_validates_axis_contribution_shape(db: Session) -> None:
         )
 
 
+def test_repository_rejects_inconsistent_behavior_feature_payloads(db: Session) -> None:
+    repository = AnalysisResultRepository(db)
+    analysis_run = create_run(db)
+
+    with pytest.raises(ValueError):
+        repository.add_behavior_metric(
+            analysis_run_id=analysis_run.id,
+            feature_code="NEW_MERCHANT_RATIO",
+            status=BehaviorFeatureStatus.UNAVAILABLE,
+            raw_value=Decimal("0.6400"),
+            normalized_score=Decimal("0.8200"),
+            unit=BehaviorFeatureUnit.COUNT_RATIO,
+            sample_count=37,
+            unavailable_reason="INSUFFICIENT_SAMPLE",
+            evidence=[],
+            metric_metadata={},
+            schema_version="behavior-metrics-v1",
+            calculation_version="behavior-metrics-test-v1",
+        )
+
+    with pytest.raises(ValueError):
+        repository.add_behavior_metric(
+            analysis_run_id=analysis_run.id,
+            feature_code="REPEAT_MERCHANT_RATIO",
+            status=BehaviorFeatureStatus.AVAILABLE,
+            raw_value=Decimal("0.6400"),
+            normalized_score=Decimal("0.8200"),
+            unit=BehaviorFeatureUnit.COUNT_RATIO,
+            sample_count=37,
+            unavailable_reason="SHOULD_NOT_EXIST",
+            evidence=[],
+            metric_metadata={},
+            schema_version="behavior-metrics-v1",
+            calculation_version="behavior-metrics-test-v1",
+        )
+
+
 def test_database_constraints_reject_duplicate_metric_and_invalid_ai_report(db: Session) -> None:
     repository = AnalysisResultRepository(db)
     analysis_run = create_run(db)
@@ -308,6 +345,52 @@ def test_database_constraints_reject_duplicate_metric_and_invalid_ai_report(db: 
             validation_result={},
             failure_reason=None,
             schema_version="grounded-ai-report-v1",
+            snapshot_hash=SNAPSHOT_HASH,
+        )
+    )
+
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+def test_database_constraints_reject_failed_run_with_result_status(db: Session) -> None:
+    group = seed_group(db)
+    db.add(
+        AnalysisRun(
+            group_id=group.id,
+            status=AnalysisRunStatus.FAILED,
+            result_status=ResultStatus.STANDARD,
+            provisional_reasons=[],
+            analysis_period_started_at=datetime(2026, 7, 1, tzinfo=UTC),
+            analysis_period_ended_at=datetime(2026, 7, 31, tzinfo=UTC),
+            source_type=AnalysisSourceType.CSV,
+            is_synthetic=False,
+            input_schema_version="analysis-input-v1",
+            analysis_version="analysis-persistence-test-v1",
+            snapshot_hash=SNAPSHOT_HASH,
+        )
+    )
+
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+def test_database_constraints_reject_unavailable_feature_with_values(db: Session) -> None:
+    analysis_run = create_run(db)
+    db.add(
+        BehaviorMetric(
+            analysis_run_id=analysis_run.id,
+            feature_code="NEW_MERCHANT_RATIO",
+            status=BehaviorFeatureStatus.UNAVAILABLE,
+            raw_value=Decimal("0.6400"),
+            normalized_score=Decimal("0.8200"),
+            unit=BehaviorFeatureUnit.COUNT_RATIO,
+            sample_count=37,
+            unavailable_reason="INSUFFICIENT_SAMPLE",
+            evidence=[],
+            metric_metadata={},
+            schema_version="behavior-metrics-v1",
+            calculation_version="behavior-metrics-test-v1",
             snapshot_hash=SNAPSHOT_HASH,
         )
     )
